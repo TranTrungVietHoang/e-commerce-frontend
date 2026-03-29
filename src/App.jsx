@@ -1,175 +1,154 @@
-import React, { useMemo, useState } from 'react';
-import { Badge, Button, Card, ConfigProvider, Drawer, Layout, List, Menu, Space, Typography } from 'antd';
-import { AppstoreOutlined, GiftOutlined, HomeOutlined, ShoppingCartOutlined } from '@ant-design/icons';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { CartProvider } from './context/CartContext';
-import useCart from './hooks/useCart';
-import HomePage from './pages/public/HomePage';
-import CartPage from './pages/customer/CartPage';
-import ProductManagePage from './pages/seller/ProductManagePage';
-import AddProductPage from './pages/seller/AddProductPage';
-import EditProductPage from './pages/seller/EditProductPage';
-import VoucherManagePage from './pages/seller/VoucherManagePage';
 import React from 'react';
-import { ConfigProvider, Layout, Menu, theme } from 'antd';
+import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } from 'antd';
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
-  AppstoreOutlined, HomeOutlined,
+  AppstoreOutlined, HomeOutlined, LogoutOutlined,
 } from '@ant-design/icons';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-
-// Seller pages
-import ProductManagePage  from './pages/seller/ProductManagePage';
-import AddProductPage     from './pages/seller/AddProductPage';
-import EditProductPage    from './pages/seller/EditProductPage';
-
-// Public pages (Member 4)
-import HomePage           from './pages/public/HomePage';
-import SearchResultPage   from './pages/public/SearchResultPage';
-import ProductDetailPage  from './pages/public/ProductDetailPage';
-
-// Common components
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import SearchBar from './components/common/SearchBar';
+
+// ── Public pages ──────────────────────────────────────────────────────────────
+import HomePage          from './pages/public/HomePage';
+import SearchResultPage  from './pages/public/SearchResultPage';
+import ProductDetailPage from './pages/public/ProductDetailPage';
+import LoginPage         from './pages/public/LoginPage';
+import RegisterPage      from './pages/public/RegisterPage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
+
+// ── Seller pages ──────────────────────────────────────────────────────────────
+import ProductManagePage from './pages/seller/ProductManagePage';
+import AddProductPage    from './pages/seller/AddProductPage';
+import EditProductPage   from './pages/seller/EditProductPage';
+
+// ── Customer pages ────────────────────────────────────────────────────────────
+import CartPage     from './pages/customer/CartPage';
+import ProfilePage  from './pages/customer/ProfilePage';
+
+// ── Admin pages ───────────────────────────────────────────────────────────────
+import UserManagePage from './pages/admin/UserManagePage';
 
 import './App.css';
 
-const { Header, Content } = Layout;
-const { Text } = Typography;
+const { Header, Content, Footer } = Layout;
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
-
+// ── Inner shell (dùng hook cần nằm trong Provider) ───────────────────────────
 const AppShell = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const { cart, removeCartItem } = useCart();
-
-  const items = useMemo(() => ([
-    { key: '/', icon: <HomeOutlined />, label: 'Trang chu' },
-    { key: '/seller/products', icon: <AppstoreOutlined />, label: 'Quan ly san pham' },
-    { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher' },
-    { key: '/cart', icon: <ShoppingCartOutlined />, label: 'Gio hang' },
-  ]), []);
-
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-        <Text style={{ color: '#fff', fontSize: 20, fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/')}>
-          A+ Marketplace
-        </Text>
-        <Menu theme="dark" mode="horizontal" selectedKeys={[location.pathname]} items={items} onClick={({ key }) => navigate(key)} style={{ flex: 1 }} />
-        <Badge count={cart.totalItems}>
-          <Button icon={<ShoppingCartOutlined />} onClick={() => setDrawerOpen(true)}>
-            Gio hang nhanh
-          </Button>
-        </Badge>
-      </Header>
-      <Content style={{ padding: 24 }}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/seller/products" element={<ProductManagePage />} />
-          <Route path="/seller/products/add" element={<AddProductPage />} />
-          <Route path="/seller/products/edit/:id" element={<EditProductPage />} />
-          <Route path="/seller/vouchers" element={<VoucherManagePage />} />
-        </Routes>
-      </Content>
-      <Drawer title="Gio hang nhanh" open={drawerOpen} onClose={() => setDrawerOpen(false)} width={420}>
-        <List
-          dataSource={cart.items}
-          locale={{ emptyText: 'Chua co san pham' }}
-          renderItem={(item) => (
-            <List.Item actions={[<Button type="link" danger onClick={() => removeCartItem(item.id)}>Xoa</Button>]}>
-              <List.Item.Meta
-                avatar={<img src={item.imageUrl || 'https://via.placeholder.com/48'} alt={item.productName} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />}
-                title={item.productName}
-                description={`${item.quantity} x ${formatCurrency(item.unitPrice)}`}
-              />
-            </List.Item>
-          )}
-        />
-        <Card style={{ marginTop: 16 }}>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Text strong>Tam tinh: {formatCurrency(cart.subtotal)}</Text>
-            <Button type="primary" block onClick={() => { setDrawerOpen(false); navigate('/cart'); }}>
-              Mo trang gio hang
-            </Button>
-          </Space>
-        </Card>
-      </Drawer>
-    </Layout>
-const App = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { token: { colorBgContainer, borderRadiusLG } } = theme.useToken();
+  const { isAuthenticated, user, logout, isAdmin } = useAuth();
 
   const menuItems = [
-    { key: '/',                icon: <HomeOutlined />,         label: 'Trang chủ' },
-    { key: '/search',          icon: <AppstoreOutlined />,     label: 'Khám phá' },
-    { key: '/seller/products', icon: <ShopOutlined />,         label: 'Quản lý kho' },
-    { key: '/cart',            icon: <ShoppingCartOutlined />, label: 'Giỏ hàng' },
-    { key: '/profile',         icon: <UserOutlined />,         label: 'Tài khoản' },
+    { key: '/',       icon: <HomeOutlined />,         label: 'Trang chủ' },
+    { key: '/search', icon: <AppstoreOutlined />,     label: 'Khám phá'  },
+    { key: '/seller/products', icon: <ShopOutlined />, label: 'Quản lý kho' },
+    { key: '/cart',   icon: <ShoppingCartOutlined />, label: 'Giỏ hàng'  },
   ];
 
+  // Dropdown menu cho avatar khi đã đăng nhập
+  const userMenuItems = [
+    { key: 'profile', icon: <UserOutlined />,   label: 'Hồ sơ của tôi' },
+    isAdmin ? { key: 'admin',   icon: <AppstoreOutlined />, label: 'Admin Dashboard' } : null,
+    { type: 'divider' },
+    { key: 'logout', icon: <LogoutOutlined />,  label: 'Đăng xuất', danger: true },
+  ].filter(Boolean);
+
+  const handleUserMenu = ({ key }) => {
+    if (key === 'logout') { logout(); navigate('/login'); }
+    else if (key === 'profile') navigate('/profile');
+    else if (key === 'admin')   navigate('/admin/users');
+  };
+
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}>
-      <Layout style={{ minHeight: '100vh' }}>
-        <Header style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100, width: '100%', gap: 24 }}>
-          {/* Logo */}
-          <div
-            style={{ color: 'white', fontWeight: 800, fontSize: 18, cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: 1 }}
-            onClick={() => navigate('/')}
-          >
-            A+ MARKETPLACE
-          </div>
+    <Layout style={{ minHeight: '100vh' }}>
+      <Header style={{ display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100, width: '100%', gap: 16 }}>
+        {/* Logo */}
+        <div
+          style={{ color: 'white', fontWeight: 800, fontSize: 18, cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: 1 }}
+          onClick={() => navigate('/')}
+        >
+          A+ MARKETPLACE
+        </div>
 
-          {/* SearchBar */}
-          <SearchBar />
+        <SearchBar />
 
-          {/* Navigation */}
-          <Menu
-            theme="dark"
-            mode="horizontal"
-            selectedKeys={[location.pathname]}
-            items={menuItems}
-            onClick={({ key }) => navigate(key)}
-            style={{ flex: 1, minWidth: 0 }}
-          />
-        </Header>
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          selectedKeys={[location.pathname]}
+          items={menuItems}
+          onClick={({ key }) => navigate(key)}
+          style={{ flex: 1, minWidth: 0 }}
+        />
 
-        <Content style={{ background: '#f5f6fa', minHeight: 'calc(100vh - 64px - 70px)' }}>
-          <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, minHeight: '80vh' }}>
-            <Routes>
-              {/* ── Public (Member 4) ── */}
-              <Route path="/"            element={<HomePage />} />
-              <Route path="/search"      element={<SearchResultPage />} />
-              <Route path="/products/:id" element={<ProductDetailPage />} />
+        {/* Auth area */}
+        {isAuthenticated ? (
+          <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
+            <Space style={{ cursor: 'pointer', color: 'white' }}>
+              <Avatar
+                src={user?.avatarUrl || null}
+                icon={!user?.avatarUrl && <UserOutlined />}
+                style={{ backgroundColor: '#1677ff' }}
+              />
+              <span style={{ fontSize: 13 }}>{user?.fullName?.split(' ').at(-1)}</span>
+            </Space>
+          </Dropdown>
+        ) : (
+          <Space>
+            <Button size="small" onClick={() => navigate('/login')}>Đăng nhập</Button>
+            <Button size="small" type="primary" onClick={() => navigate('/register')}>Đăng ký</Button>
+          </Space>
+        )}
+      </Header>
 
-              {/* ── Seller ── */}
-              <Route path="/seller/products"       element={<ProductManagePage />} />
-              <Route path="/seller/products/add"   element={<AddProductPage />} />
-              <Route path="/seller/products/edit/:id" element={<EditProductPage />} />
+      <Content style={{ background: '#f5f6fa', minHeight: 'calc(100vh - 134px)' }}>
+        <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, minHeight: '80vh' }}>
+          <Routes>
+            {/* ── Public ── */}
+            <Route path="/"              element={<HomePage />} />
+            <Route path="/search"        element={<SearchResultPage />} />
+            <Route path="/products/:id"  element={<ProductDetailPage />} />
+            <Route path="/login"         element={<LoginPage />} />
+            <Route path="/register"      element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/unauthorized"  element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>🚫 Bạn không có quyền truy cập trang này.</div>} />
 
-              {/* Fallback */}
-              <Route path="*" element={<div style={{ padding: 50, textAlign: 'center' }}>404 - Trang không tồn tại</div>} />
-            </Routes>
-          </div>
-        </Content>
+            {/* ── Customer (cần đăng nhập) ── */}
+            <Route path="/cart"    element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
-        <Footer style={{ textAlign: 'center', background: '#001529', color: '#ffffff88', padding: '16px' }}>
-          A+ Marketplace ©{new Date().getFullYear()} - Professional E-Commerce System
-        </Footer>
-      </Layout>
-    </ConfigProvider>
+            {/* ── Seller ── */}
+            <Route path="/seller/products"         element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
+            <Route path="/seller/products/add"     element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><AddProductPage /></ProtectedRoute>} />
+            <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
+
+            {/* ── Admin ── */}
+            <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
+
+            {/* Fallback */}
+            <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />
+          </Routes>
+        </div>
+      </Content>
+
+      <Footer style={{ textAlign: 'center', background: '#001529', color: '#ffffff88', padding: '16px' }}>
+        A+ Marketplace ©{new Date().getFullYear()} — Professional E-Commerce System
+      </Footer>
+    </Layout>
   );
 };
 
+// ── Root App: bọc providers ───────────────────────────────────────────────────
 const App = () => (
-  <ConfigProvider theme={{ token: { colorPrimary: '#d4380d', borderRadius: 10 } }}>
-    <CartProvider>
-      <AppShell />
-    </CartProvider>
+  <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}>
+    <AuthProvider>
+      <CartProvider>
+        <AppShell />
+      </CartProvider>
+    </AuthProvider>
   </ConfigProvider>
 );
 
