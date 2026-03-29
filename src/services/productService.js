@@ -11,6 +11,10 @@ const productService = {
   getShopProducts: (shopId, page = 0, size = 10) => 
     api.get(`/products/shop/${shopId}?page=${page}&size=${size}`),
 
+  // Lấy danh sách sản phẩm công khai
+  getPublicProducts: () => 
+    api.get('/products/public'),
+
   // Lấy chi tiết sản phẩm theo ID
   getProductById: (id) => 
     api.get(`/products/${id}`),
@@ -34,14 +38,17 @@ const productService = {
     api.get(`/products/low-stock?shopId=${shopId}`),
 
   // --- CATEGORY ---
-  getCategories: () => api.get('/categories'),
+  getCategories: () => 
+    api.get('/categories'),
+
+  // --- IMAGE MANAGEMENT ---
 
   // Upload ảnh lên Cloudinary thông qua Backend
   uploadImage: (file) => {
     const formData = new FormData();
     formData.append('file', file);
     return api.post('/products/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
 };
