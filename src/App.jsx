@@ -24,7 +24,8 @@ import AddProductPage    from './pages/seller/AddProductPage';
 import EditProductPage   from './pages/seller/EditProductPage';
 
 // ── Customer pages ────────────────────────────────────────────────────────────
-import CartPage    from './pages/customer/CartPage';
+import CartPage     from './pages/customer/CartPage';
+import ProfilePage  from './pages/customer/ProfilePage';
 
 import './App.css';
 
@@ -110,7 +111,7 @@ const AppShell = () => {
 
             {/* ── Customer (cần đăng nhập) ── */}
             <Route path="/cart"    element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><div style={{ padding: 40 }}>Profile Page (Milestone 8)</div></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
             {/* ── Seller ── */}
             <Route path="/seller/products"         element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
