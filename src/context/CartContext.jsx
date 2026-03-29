@@ -20,7 +20,10 @@ export const CartProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    refreshCart();
+    // Chỉ load giỏ hàng khi đã đăng nhập
+    if (localStorage.getItem('accessToken')) {
+      refreshCart();
+    }
   }, []);
 
   const runCartAction = async (action, successMessage) => {
