@@ -27,6 +27,9 @@ import EditProductPage   from './pages/seller/EditProductPage';
 import CartPage     from './pages/customer/CartPage';
 import ProfilePage  from './pages/customer/ProfilePage';
 
+// ── Admin pages ───────────────────────────────────────────────────────────────
+import UserManagePage from './pages/admin/UserManagePage';
+
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
@@ -119,7 +122,7 @@ const AppShell = () => {
             <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
 
             {/* ── Admin ── */}
-            <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><div style={{ padding: 40 }}>Admin User Manage (Milestone 9)</div></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />
