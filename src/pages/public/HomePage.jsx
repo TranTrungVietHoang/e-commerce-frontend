@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Carousel, Row, Col, Typography, Divider, Spin, Empty } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Carousel, Row, Col, Typography, Divider, Spin, Empty, Badge, Button, Card, Space, Tag } from 'antd';
 import CategoryMenu from '../../components/common/CategoryMenu';
 import ProductCard from '../../components/product/ProductCard';
 import homeService from '../../services/homeService';
+import productService from '../../services/productService';
+import useCart from '../../hooks/useCart';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const bannerStyle = {
   width: '100%',
@@ -23,21 +25,52 @@ const BANNER_GRADIENTS = [
   'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
 ];
 
-/**
- * HomePage – Trang chủ: Banner + CategoryMenu + Sản phẩm mới + Bán chạy nhất.
- */
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+
+const getCountdown = (endAt) => {
+  if (!endAt) return null;
+  const diff = new Date(endAt).getTime() - Date.now();
+  if (diff <= 0) return 'Da ket thuc';
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
 const HomePage = () => {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingHome, setLoadingHome] = useState(true);
+  
+  const [products, setProducts] = useState([]);
+  const [now, setNow] = useState(Date.now());
+  const { addToCart, loading: cartLoading } = useCart();
 
   useEffect(() => {
     homeService.getHomeData()
       .then(res => setData(res.data?.data || null))
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => setLoadingHome(false));
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', paddingTop: 80 }}><Spin size="large" /></div>;
+  useEffect(() => {
+    productService.getPublicProducts().then(res => {
+        const _products = res.data?.data || res.data || [];
+        setProducts(Array.isArray(_products) ? _products : []);
+    }).catch(() => setProducts([]));
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const productsWithCountdown = useMemo(
+    () => products.map((product) => ({ ...product, countdown: getCountdown(product.flashSaleEndAt) })),
+    [products, now]
+  );
+
+  if (loadingHome) return <div style={{ textAlign: 'center', paddingTop: 80 }}><Spin size="large" /></div>;
 
   const { banners = [], newestProducts = [], bestSellingProducts = [] } = data || {};
 
@@ -61,6 +94,64 @@ const HomePage = () => {
       </div>
 
       <div style={{ padding: '24px 48px' }}>
+        {/* Flash Sale Section */}
+        {productsWithCountdown.length > 0 && (
+          <Space direction="vertical" size={24} style={{ width: '100%', marginBottom: 40 }}>
+            <div>
+              <Title level={2} style={{ marginBottom: 8 }}>Flash Sale va Gio Hang</Title>
+              <Text type="secondary">Gia flash sale duoc uu tien tu dong khi san pham dang trong khung gio su kien.</Text>
+            </div>
+            <Row gutter={[16, 20]}>
+              {productsWithCountdown.map((product) => (
+                <Col xs={24} sm={12} lg={8} xl={6} key={product.id}>
+                  <Badge.Ribbon text={product.flashSaleActive ? 'Flash Sale' : 'San pham'} color={product.flashSaleActive ? 'red' : 'blue'}>
+                    <Card
+                      cover={
+                        <div style={{ height: 220, overflow: 'hidden', background: '#fafafa' }}>
+                          <img
+                            src={product.primaryImageUrl || 'https://via.placeholder.com/400x220?text=No+Image'}
+                            alt={product.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      }
+                    >
+                      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        <Title level={5} style={{ margin: 0 }}>{product.name}</Title>
+                        <Tag>{product.categoryName}</Tag>
+                        <div>
+                          <Text strong style={{ fontSize: 18, color: '#cf1322' }}>{formatCurrency(product.effectivePrice || product.basePrice)}</Text>
+                          {product.flashSaleActive && (
+                            <div>
+                              <Text delete type="secondary">{formatCurrency(product.basePrice)}</Text>
+                            </div>
+                          )}
+                        </div>
+                        {product.flashSaleActive && (
+                          <Card size="small" styles={{ body: { padding: 12, background: '#fff1f0' } }}>
+                            <Text strong>Con lai: {product.countdown}</Text>
+                          </Card>
+                        )}
+                        <Text type="secondary">Ton kho: {product.stockQuantity}</Text>
+                        <Button
+                          type="primary"
+                          block
+                          disabled={product.stockQuantity <= 0}
+                          loading={cartLoading}
+                          onClick={() => addToCart({ productId: product.id, quantity: 1 })}
+                        >
+                          Them vao gio
+                        </Button>
+                      </Space>
+                    </Card>
+                  </Badge.Ribbon>
+                </Col>
+              ))}
+            </Row>
+          </Space>
+        )}
+
+        {/* Newest Products Section */}
         <Title level={3} style={{ margin: '24px 0 16px' }}>🆕 Sản phẩm mới nhất</Title>
         {newestProducts.length === 0
           ? <Empty description="Chưa có sản phẩm" />
@@ -69,6 +160,7 @@ const HomePage = () => {
 
         <Divider style={{ margin: '40px 0 8px' }} />
 
+        {/* Best Selling Products Section */}
         <Title level={3} style={{ margin: '24px 0 16px' }}>🔥 Bán chạy nhất</Title>
         {bestSellingProducts.length === 0
           ? <Empty description="Chưa có sản phẩm" />

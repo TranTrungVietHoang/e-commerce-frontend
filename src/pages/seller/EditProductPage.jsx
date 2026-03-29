@@ -1,3 +1,6 @@
+import React, { useEffect, useState } from 'react';
+import { Button, Card, Checkbox, Form, Input, InputNumber, List, Select, Space, Table, Typography, Upload, message } from 'antd';
+import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import React, { useState, useEffect } from 'react';
 import { 
   Steps, Form, Input, InputNumber, Button, Card, Space, 
@@ -12,11 +15,47 @@ import productService from '../../services/productService';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+const shopId = 1;
+
+const mapVariantsPayload = (variants) => variants.map(({ key, attributes, ...rest }) => ({
+  ...rest,
+  attributes: JSON.stringify(Object.fromEntries(attributes.filter((attr) => attr.key && attr.value).map((attr) => [attr.key, attr.value]))),
+}));
+
+const normalizeProductPayload = (values, imageUrls, variants) => ({
+  ...values,
+  status: values.status || 'ACTIVE',
+  imageUrls,
+  variants: mapVariantsPayload(variants),
+  flashSaleEnabled: !!values.flashSaleEnabled,
+  flashSalePrice: values.flashSaleEnabled ? values.flashSalePrice : null,
+  flashSaleStartAt: values.flashSaleEnabled ? values.flashSaleStartAt : null,
+  flashSaleEndAt: values.flashSaleEnabled ? values.flashSaleEndAt : null,
+});
 const { Dragger } = Upload;
 
 const EditProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [form] = Form.useForm();
+  const [categories, setCategories] = useState([]);
+  const [imageUrls, setImageUrls] = useState([]);
+  const [variants, setVariants] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    Promise.all([productService.getCategories(), productService.getProductById(id)])
+      .then(([categoryData, product]) => {
+        setCategories(categoryData);
+        setImageUrls((product.images || []).map((item) => item.imageUrl));
+        setVariants((product.variants || []).map((variant) => ({
+          id: variant.id,
+          key: variant.id,
+          attributes: Object.entries(JSON.parse(variant.attributes || '{}')).map(([key, value]) => ({ key, value })),
+          price: variant.price,
+          stock: variant.stock,
+          sku: variant.sku,
+        })));
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
@@ -45,6 +84,131 @@ const EditProductPage = () => {
           name: product.name,
           categoryId: product.categoryId,
           basePrice: product.basePrice,
+          status: product.status || 'ACTIVE',
+          description: product.description,
+          flashSaleEnabled: !!product.flashSaleEnabled,
+          flashSalePrice: product.flashSalePrice,
+          flashSaleStartAt: product.flashSaleStartAt ? product.flashSaleStartAt.slice(0, 16) : null,
+          flashSaleEndAt: product.flashSaleEndAt ? product.flashSaleEndAt.slice(0, 16) : null,
+        });
+      })
+      .catch((error) => message.error(error.message || 'Khong the tai san pham'));
+  }, [id, form]);
+
+  const addVariant = () => setVariants((prev) => [...prev, { key: Date.now(), attributes: [{ key: 'Loai', value: '' }], price: form.getFieldValue('basePrice') || 0, stock: 0, sku: '' }]);
+  const updateVariant = (key, field, value) => setVariants((prev) => prev.map((item) => item.key === key ? { ...item, [field]: value } : item));
+  const updateAttribute = (key, index, field, value) => setVariants((prev) => prev.map((item) => {
+    if (item.key !== key) return item;
+    const attributes = [...item.attributes];
+    attributes[index] = { ...attributes[index], [field]: value };
+    return { ...item, attributes };
+  }));
+  const addAttribute = (key) => setVariants((prev) => prev.map((item) => item.key === key ? { ...item, attributes: [...item.attributes, { key: '', value: '' }] } : item));
+  const removeVariant = (key) => setVariants((prev) => prev.filter((item) => item.key !== key));
+
+  const handleUpload = async (file) => {
+    try {
+      const url = await productService.uploadImage(file);
+      setImageUrls((prev) => [...prev, url]);
+    } catch (error) {
+      message.error(error.message || 'Tai anh that bai');
+    }
+    return false;
+  };
+
+  const onFinish = async (values) => {
+    if (!imageUrls.length) {
+      message.warning('Can it nhat 1 hinh anh san pham');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = normalizeProductPayload(values, imageUrls, variants);
+      const updated = await productService.updateProduct(id, shopId, payload);
+      message.success(`Da cap nhat san pham: ${updated.name}`);
+      navigate('/seller/products');
+    } catch (error) {
+      message.error(error.message || 'Khong the cap nhat san pham');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 24 }}>
+      <Card>
+        <Title level={3}>Cap nhat san pham</Title>
+        <Form form={form} layout="vertical" onFinish={onFinish}>
+          <Form.Item name="name" label="Ten san pham" rules={[{ required: true }]}><Input /></Form.Item>
+          <Space style={{ width: '100%' }} align="start">
+            <Form.Item name="categoryId" label="Danh muc" rules={[{ required: true }]} style={{ flex: 1 }}>
+              <Select options={categories.map((item) => ({ value: item.id, label: item.name }))} />
+            </Form.Item>
+            <Form.Item name="basePrice" label="Gia goc" rules={[{ required: true }]} style={{ width: 240 }}>
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="status" label="Trang thai" rules={[{ required: true }]} style={{ width: 220 }}>
+              <Select options={[{ value: 'ACTIVE', label: 'ACTIVE' }, { value: 'INACTIVE', label: 'INACTIVE' }]} />
+            </Form.Item>
+          </Space>
+          <Form.Item name="description" label="Mo ta" rules={[{ required: true }]}><TextArea rows={5} /></Form.Item>
+          <Card size="small" title="Flash sale" style={{ marginBottom: 16 }}>
+            <Form.Item name="flashSaleEnabled" valuePropName="checked"><Checkbox>Kich hoat flash sale</Checkbox></Form.Item>
+            <Space style={{ width: '100%' }} align="start">
+              <Form.Item name="flashSalePrice" label="Gia flash sale" style={{ flex: 1 }}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+              <Form.Item name="flashSaleStartAt" label="Bat dau" style={{ flex: 1 }}><Input type="datetime-local" /></Form.Item>
+              <Form.Item name="flashSaleEndAt" label="Ket thuc" style={{ flex: 1 }}><Input type="datetime-local" /></Form.Item>
+            </Space>
+          </Card>
+          <Card size="small" title="Hinh anh" style={{ marginBottom: 16 }}>
+            <Upload beforeUpload={handleUpload} showUploadList={false}>
+              <Button icon={<UploadOutlined />}>Tai anh</Button>
+            </Upload>
+            <List
+              style={{ marginTop: 12 }}
+              dataSource={imageUrls}
+              renderItem={(item) => (
+                <List.Item actions={[<Button danger type="link" onClick={() => setImageUrls((prev) => prev.filter((url) => url !== item))}>Xoa</Button>]}>
+                  <Text ellipsis>{item}</Text>
+                </List.Item>
+              )}
+            />
+          </Card>
+          <Card size="small" title="Bien the">
+            <Button icon={<PlusOutlined />} onClick={addVariant} style={{ marginBottom: 12 }}>Them bien the</Button>
+            <Table
+              rowKey="key"
+              pagination={false}
+              dataSource={variants}
+              columns={[
+                {
+                  title: 'Thuoc tinh',
+                  render: (_, record) => (
+                    <Space direction="vertical">
+                      {(record.attributes || [{ key: 'Loai', value: '' }]).map((attribute, index) => (
+                        <Space key={`${record.key}-${index}`}>
+                          <Input value={attribute.key} placeholder="Ten" onChange={(e) => updateAttribute(record.key, index, 'key', e.target.value)} />
+                          <Input value={attribute.value} placeholder="Gia tri" onChange={(e) => updateAttribute(record.key, index, 'value', e.target.value)} />
+                        </Space>
+                      ))}
+                      <Button type="link" onClick={() => addAttribute(record.key)}>Them thuoc tinh</Button>
+                    </Space>
+                  ),
+                },
+                { title: 'Gia', render: (_, record) => <InputNumber min={1} value={record.price} onChange={(value) => updateVariant(record.key, 'price', value)} /> },
+                { title: 'Kho', render: (_, record) => <InputNumber min={0} value={record.stock} onChange={(value) => updateVariant(record.key, 'stock', value)} /> },
+                { title: 'SKU', render: (_, record) => <Input value={record.sku} onChange={(e) => updateVariant(record.key, 'sku', e.target.value)} /> },
+                { title: '', render: (_, record) => <Button danger icon={<DeleteOutlined />} onClick={() => removeVariant(record.key)} /> },
+              ]}
+            />
+          </Card>
+          <Space style={{ marginTop: 16 }}>
+            <Button onClick={() => navigate('/seller/products')}>Huy</Button>
+            <Button type="primary" loading={saving} onClick={() => form.submit()}>Luu</Button>
+          </Space>
+        </Form>
+      </Card>
           description: product.description
         });
         
