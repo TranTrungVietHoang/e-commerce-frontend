@@ -88,7 +88,11 @@ const AppShell = () => {
         {isAuthenticated ? (
           <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
             <Space style={{ cursor: 'pointer', color: 'white' }}>
-              <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1677ff' }} />
+              <Avatar
+                src={user?.avatarUrl || null}
+                icon={!user?.avatarUrl && <UserOutlined />}
+                style={{ backgroundColor: '#1677ff' }}
+              />
               <span style={{ fontSize: 13 }}>{user?.fullName?.split(' ').at(-1)}</span>
             </Space>
           </Dropdown>

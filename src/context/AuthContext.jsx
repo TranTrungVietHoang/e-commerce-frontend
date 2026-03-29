@@ -4,7 +4,7 @@ import authService from '../services/authService';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]   = useState(null);   // { userId, email, fullName, roles }
+  const [user, setUser]       = useState(null);   // { userId, email, fullName, avatarUrl, roles }
   const [loading, setLoading] = useState(true);
 
   // Khởi tạo lại state từ localStorage khi F5 trang
@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Lắng nghe event từ api.js interceptor khi token hết hạn (không hard reload)
+  // Lắng nghe event từ api.js interceptor khi token hết hạn
   useEffect(() => {
     const handleAuthLogout = () => setUser(null);
     window.addEventListener('auth:logout', handleAuthLogout);
@@ -25,21 +25,36 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (credentials) => {
     const data = await authService.login(credentials);
-    // data = AuthResponse { accessToken, refreshToken, userId, email, fullName, roles }
     localStorage.setItem('accessToken',  data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
-    const profile = { userId: data.userId, email: data.email, fullName: data.fullName, roles: data.roles };
+    const profile = {
+      userId:    data.userId,
+      email:     data.email,
+      fullName:  data.fullName,
+      avatarUrl: data.avatarUrl || null,
+      roles:     data.roles,
+    };
     localStorage.setItem('authUser', JSON.stringify(profile));
     setUser(profile);
     return data;
   }, []);
 
   const logout = useCallback(async () => {
-    try { await authService.logout(); } catch { /* ignore network error */ }
+    try { await authService.logout(); } catch { /* ignore */ }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('authUser');
     setUser(null);
+  }, []);
+
+  /** Cập nhật avatarUrl trong state + localStorage (gọi sau khi upload thành công) */
+  const updateAvatar = useCallback((avatarUrl) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatarUrl };
+      localStorage.setItem('authUser', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   const isAuthenticated = !!user;
@@ -48,8 +63,9 @@ export const AuthProvider = ({ children }) => {
   const isCustomer = user?.roles?.includes('ROLE_CUSTOMER') ?? false;
 
   const value = useMemo(() => ({
-    user, loading, isAuthenticated, isAdmin, isSeller, isCustomer, login, logout,
-  }), [user, loading, isAuthenticated, isAdmin, isSeller, isCustomer, login, logout]);
+    user, loading, isAuthenticated, isAdmin, isSeller, isCustomer,
+    login, logout, updateAvatar,
+  }), [user, loading, isAuthenticated, isAdmin, isSeller, isCustomer, login, logout, updateAvatar]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
