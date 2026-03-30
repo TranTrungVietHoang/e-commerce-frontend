@@ -5,10 +5,12 @@ const orderService = {
    * Tạo đơn hàng mới từ giỏ hàng
    * POST /api/v1/orders
    */
-  createOrder: async (shopId, shippingAddress, paymentMethod, voucherId, pointsUsed) => {
+  createOrder: async (shopId, shippingAddress, paymentMethod, voucherId, pointsUsed, recipientName, recipientPhone) => {
     try {
-      const response = await api.post('/v1/orders', {
+      const response = await api.post('/orders', {
         shopId,
+        recipientName,
+        recipientPhone,
         shippingAddress,
         paymentMethod,
         voucherId,
@@ -27,7 +29,7 @@ const orderService = {
    */
   getMyOrders: async (page = 0, size = 10) => {
     try {
-      const response = await api.get(`/v1/orders?page=${page}&size=${size}`);
+      const response = await api.get(`/orders?page=${page}&size=${size}`);
       return response;
     } catch (error) {
       console.error('Lỗi lấy danh sách đơn:', error);
@@ -41,7 +43,7 @@ const orderService = {
    */
   getOrderDetail: async (orderId) => {
     try {
-      const response = await api.get(`/v1/orders/${orderId}`);
+      const response = await api.get(`/orders/${orderId}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy chi tiết đơn ${orderId}:`, error);
@@ -55,7 +57,7 @@ const orderService = {
    */
   cancelOrder: async (orderId) => {
     try {
-      const response = await api.delete(`/v1/orders/${orderId}`);
+      const response = await api.delete(`/orders/${orderId}`);
       return response;
     } catch (error) {
       console.error(`Lỗi hủy đơn ${orderId}:`, error);
@@ -69,7 +71,7 @@ const orderService = {
    */
   getOrderStatusHistory: async (orderId) => {
     try {
-      const response = await api.get(`/v1/orders/${orderId}/status-history`);
+      const response = await api.get(`/orders/${orderId}/status-history`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy lịch sử trạng thái ${orderId}:`, error);
@@ -83,7 +85,7 @@ const orderService = {
    */
   getShopOrders: async (shopId, page = 0, size = 10) => {
     try {
-      const response = await api.get(`/v1/orders/shop/${shopId}?page=${page}&size=${size}`);
+      const response = await api.get(`/orders/shop/${shopId}?page=${page}&size=${size}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy danh sách đơn shop ${shopId}:`, error);
@@ -97,7 +99,7 @@ const orderService = {
    */
   updateOrderStatus: async (orderId, status) => {
     try {
-      const response = await api.put(`/v1/orders/${orderId}/status`, { status });
+      const response = await api.put(`/orders/${orderId}/status`, { status });
       return response;
     } catch (error) {
       console.error(`Lỗi cập nhật trạng thái đơn ${orderId}:`, error);
@@ -111,7 +113,7 @@ const orderService = {
    */
   getShopRevenue: async (shopId, period = 'DAY') => {
     try {
-      const response = await api.get(`/v1/revenue/shop/${shopId}?period=${period}`);
+      const response = await api.get(`/revenue/shop/${shopId}?period=${period}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy doanh thu shop ${shopId}:`, error);
@@ -125,7 +127,7 @@ const orderService = {
    */
   getTopProducts: async (shopId, limit = 10) => {
     try {
-      const response = await api.get(`/v1/revenue/shop/${shopId}/top-products?limit=${limit}`);
+      const response = await api.get(`/revenue/shop/${shopId}/top-products?limit=${limit}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy top products chop ${shopId}:`, error);
@@ -139,7 +141,7 @@ const orderService = {
    */
   getTodayRevenue: async (shopId) => {
     try {
-      const response = await api.get(`/v1/revenue/shop/${shopId}/today`);
+      const response = await api.get(`/revenue/shop/${shopId}/today`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy doanh thu hôm nay shop ${shopId}:`, error);

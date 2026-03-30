@@ -14,7 +14,10 @@ const CategoryMenu = () => {
 
   useEffect(() => {
     productService.getCategories()
-      .then(res => setCategories(res.data?.data || []))
+      .then(res => {
+        const categories = Array.isArray(res) ? res : [];
+        setCategories(categories);
+      })
       .catch(() => {});
   }, []);
 

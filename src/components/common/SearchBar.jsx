@@ -21,7 +21,7 @@ const SearchBar = () => {
     debounceTimer = setTimeout(async () => {
       try {
         const res = await searchService.getSuggestions(text);
-        const suggestions = res.data?.data || [];
+        const suggestions = Array.isArray(res) ? res : [];
         setOptions(
           suggestions.map(s => ({
             value: s.name,

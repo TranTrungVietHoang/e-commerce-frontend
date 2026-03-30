@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
-import cartService from '../../services/cartService';
 import orderService from '../../services/orderService';
 import voucherService from '../../services/voucherService';
-import '../styles/CheckoutPage.css';
+import paymentService from '../../services/paymentService';
+import './CheckoutPage.css';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cart } = useCart();
+  const { cart, refreshCart } = useCart();  // Get cart from context instead of API call
 
   // Multi-step form state
   const [currentStep, setCurrentStep] = useState(1); // 1: Review, 2: Shipping, 3: Payment, 4: Confirm
-  const [cartItems, setCartItems] = useState([]);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD'); // COD | SEPAY_TRANSFER
   const [voucherCode, setVoucherCode] = useState('');
@@ -23,27 +24,15 @@ const CheckoutPage = () => {
   const [error, setError] = useState('');
   const [orderConfirmation, setOrderConfirmation] = useState(null);
   const [sepayQr, setSepayQr] = useState(null);
+  const [paymentPolling, setPaymentPolling] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
-  // Load cart items
-  useEffect(() => {
-    const loadCartItems = async () => {
-      try {
-        setLoading(true);
-        const response = await cartService.getCart();
-        if (response.success) {
-          setCartItems(response.data || []);
-        }
-      } catch (err) {
-        setError('Lỗi tải giỏ hàng: ' + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadCartItems();
-  }, []);
+  // Use cart items from context (already loaded by CartProvider)
+  const cartItems = cart?.items || [];
 
-  // Calculate totals
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  // Calculate totals using lineTotal instead of totalPrice
+  const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
   const totalAfterDiscount = Math.max(0, subtotal - voucherDiscount - pointsUsed);
 
   // Validate voucher
@@ -56,17 +45,16 @@ const CheckoutPage = () => {
     try {
       setLoading(true);
       const response = await voucherService.validateVoucher(voucherCode, subtotal);
-      if (response.success) {
-        setVoucherId(response.data.id);
-        setVoucherDiscount(response.data.discountAmount || 0);
+      // The interceptor returns the unwrapped data on success, or throws on error.
+      if (response) {
+        setVoucherId(response.id);
+        setVoucherDiscount(response.discountAmount || 0);
         setError('');
-      } else {
-        setError(response.message || 'Voucher không hợp lệ');
-        setVoucherId(null);
-        setVoucherDiscount(0);
       }
     } catch (err) {
-      setError('Lỗi kiểm tra voucher: ' + err.message);
+      setError(err.message || 'Lỗi kiểm tra voucher');
+      setVoucherId(null);
+      setVoucherDiscount(0);
     } finally {
       setLoading(false);
     }
@@ -74,6 +62,14 @@ const CheckoutPage = () => {
 
   // Create order
   const handleCreateOrder = async () => {
+    if (!recipientName.trim()) {
+      setError('Vui lòng nhập tên người nhận');
+      return;
+    }
+    if (!recipientPhone.trim()) {
+      setError('Vui lòng nhập số điện thoại người nhận');
+      return;
+    }
     if (!shippingAddress.trim()) {
       setError('Vui lòng nhập địa chỉ giao hàng');
       return;
@@ -86,7 +82,7 @@ const CheckoutPage = () => {
       // Group cart items by shop
       const shopOrders = {};
       cartItems.forEach(item => {
-        const shopId = item.shop?.id || 0;
+        const shopId = item.shopId || 0;
         if (!shopOrders[shopId]) {
           shopOrders[shopId] = [];
         }
@@ -94,29 +90,42 @@ const CheckoutPage = () => {
       });
 
       // Create order for each shop
-      let lastOrderResponse = null;
+      let lastOrder = null;
       for (const shopId of Object.keys(shopOrders)) {
-        const response = await orderService.createOrder(
+        const order = await orderService.createOrder(
           parseInt(shopId),
           shippingAddress,
           paymentMethod,
           voucherId,
-          pointsUsed
+          pointsUsed,
+          recipientName,
+          recipientPhone
         );
-
-        if (response.success) {
-          lastOrderResponse = response;
-        } else {
-          throw new Error(response.message || `Lỗi tạo đơn hàng cho shop ${shopId}`);
-        }
+        lastOrder = order;
       }
 
-      if (lastOrderResponse) {
-        const order = lastOrderResponse.data;
+      if (lastOrder) {
+        const order = lastOrder;
 
-        // If SEPAY_TRANSFER - get QR code
-        if (paymentMethod === 'SEPAY_TRANSFER' && order.sepayQr) {
-          setSepayQr(order.sepayQr);
+        // If SEPAY_TRANSFER - get QR code from payment service
+        if (paymentMethod === 'SEPAY_TRANSFER') {
+          try {
+            const qrResponse = await paymentService.createSepayQr(
+              order.id,
+              order.totalAmount,
+              `Thanh toán đơn hàng #${order.id}`
+            );
+            // qrResponse contains: qrCodeBase64, transferContent, status, expiresAt
+            const qrStr = qrResponse?.qrCodeBase64 || qrResponse?.qrCode;
+            if (qrStr && !qrStr.startsWith('http') && !qrStr.startsWith('data:image')) {
+              setSepayQr(`data:image/png;base64,${qrStr}`);
+            } else {
+              setSepayQr(qrStr);
+            }
+          } catch (err) {
+            console.error('Lỗi tạo mã QR Sepay:', err);
+            setError('Lỗi tạo mã QR thanh toán: ' + err.message);
+          }
         }
 
         setOrderConfirmation({
@@ -126,6 +135,9 @@ const CheckoutPage = () => {
           shippingAddress: order.shippingAddress,
           createdAt: order.createdAt
         });
+
+        // Xóa giỏ hàng khỏi frontend context (tại database backend đã được tự động xử lý bởi orderService.createOrder)
+        refreshCart && refreshCart();
 
         setCurrentStep(4);
       }
@@ -140,6 +152,65 @@ const CheckoutPage = () => {
   const handleGoToOrderDetail = () => {
     if (orderConfirmation?.orderId) {
       navigate(`/order/${orderConfirmation.orderId}`);
+    }
+  };
+
+  // Auto-poll payment status khi user thanh toán Sepay
+  useEffect(() => {
+    if (currentStep === 4 && paymentMethod === 'SEPAY_TRANSFER' && orderConfirmation?.orderId && !paymentSuccess) {
+      setPaymentPolling(true);
+
+      const pollPayment = async () => {
+        try {
+          const response = await paymentService.getPaymentStatus(orderConfirmation.orderId);
+          
+          if (response?.status === 'PAID' || response?.status === 'COMPLETED') {
+            setPaymentSuccess(true);
+            setPaymentPolling(false);
+            setError('');
+          } else if (response?.status === 'EXPIRED' || response?.status === 'CANCELLED') {
+            setError('❌ Thanh toán hết hạn hoặc bị hủy. Vui lòng tạo đơn hàng lại.');
+            setPaymentPolling(false);
+          }
+        } catch (err) {
+          // Yêu cầu tiếp tục polling khi lỗi
+          console.error('Lỗi kiểm tra thanh toán:', err);
+        }
+      };
+
+      // Poll mỗi 3 giây trong 5 phút (100 lần)
+      const interval = setInterval(pollPayment, 3000);
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setPaymentPolling(false);
+        if (!paymentSuccess) {
+          setError('⏰ Timeout: Không nhận được xác nhận thanh toán trong 5 phút. Vui lòng kiểm tra lại.');
+        }
+      }, 300000); // 5 phút
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [currentStep, paymentMethod, orderConfirmation, paymentSuccess]);
+
+  const handleCancelOrder = async () => {
+    if (!orderConfirmation?.orderId) return;
+    if (!window.confirm('Bạn có chắc chắn muốn hủy thanh toán và hủy đơn hàng này không?')) return;
+    try {
+      setCanceling(true);
+      const res = await orderService.cancelOrder(orderConfirmation.orderId);
+      if (res) {
+        alert('Hủy đơn hàng thành công!');
+        navigate('/');
+      } else {
+        setError('Không thể hủy đơn hàng lúc này');
+      }
+    } catch (err) {
+      setError('Lỗi hủy đơn: ' + err.message);
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -159,14 +230,15 @@ const CheckoutPage = () => {
           <div className="cart-items-review">
             {cartItems.map(item => (
               <div key={item.id} className="cart-item-row">
-                <img src={item.product?.image} alt={item.product?.name} className="item-image" />
+                <img src={item.imageUrl || 'https://via.placeholder.com/80'} alt={item.productName} className="item-image" />
                 <div className="item-info">
-                  <h4>{item.product?.name}</h4>
-                  <p>Loại: {item.variant?.name || 'Không xác định'}</p>
+                  <h4>{item.productName}</h4>
+                  <p>Shop: {item.shopName}</p>
+                  <p>Loại: {item.variantName || 'Không có'}</p>
                   <p>Số lượng: {item.quantity}</p>
                 </div>
                 <div className="item-price">
-                  <p className="price">{(item.totalPrice || 0).toLocaleString('vi-VN')} ₫</p>
+                  <p className="price">{(Number(item.lineTotal) || 0).toLocaleString('vi-VN')} ₫</p>
                 </div>
               </div>
             ))}
@@ -206,7 +278,32 @@ const CheckoutPage = () => {
   // Render step 2: Shipping address
   const renderStep2 = () => (
     <div className="checkout-step">
-      <h2>2️⃣ Địa chỉ giao hàng</h2>
+      <h2>2️⃣ Thông tin giao hàng</h2>
+      
+      <div className="form-group">
+        <label>Tên người nhận *</label>
+        <input
+          type="text"
+          value={recipientName}
+          onChange={(e) => setRecipientName(e.target.value)}
+          placeholder="Vd: Nguyễn Văn A"
+          className="form-control"
+          disabled={loading}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Số điện thoại người nhận *</label>
+        <input
+          type="tel"
+          value={recipientPhone}
+          onChange={(e) => setRecipientPhone(e.target.value)}
+          placeholder="Vd: 0912345678"
+          className="form-control"
+          disabled={loading}
+        />
+      </div>
+
       <div className="form-group">
         <label>Địa chỉ giao hàng *</label>
         <textarea
@@ -215,40 +312,7 @@ const CheckoutPage = () => {
           placeholder="Vd: 123 Đường ABC, Quận Phú Nhuận, TP.HCM"
           rows={4}
           className="form-control"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>Mã voucher (nếu có)</label>
-        <div className="input-group">
-          <input
-            type="text"
-            value={voucherCode}
-            onChange={(e) => setVoucherCode(e.target.value)}
-            placeholder="Nhập mã voucher"
-            className="form-control"
-            disabled={loading}
-          />
-          <button
-            onClick={handleValidateVoucher}
-            className="btn btn-secondary"
-            disabled={loading}
-          >
-            {loading ? 'Đang kiểm tra...' : 'Kiểm tra'}
-          </button>
-        </div>
-        {voucherId && <p className="success-text">✓ Voucher hợp lệ. Giảm: {voucherDiscount.toLocaleString('vi-VN')} ₫</p>}
-      </div>
-
-      <div className="form-group">
-        <label>Điểm thưởng sử dụng</label>
-        <input
-          type="number"
-          value={pointsUsed}
-          onChange={(e) => setPointsUsed(Math.max(0, parseInt(e.target.value) || 0))}
-          min="0"
-          className="form-control"
-          placeholder="Nhập số điểm"
+          disabled={loading}
         />
       </div>
 
@@ -283,7 +347,7 @@ const CheckoutPage = () => {
           onClick={() => setPaymentMethod('SEPAY_TRANSFER')}
         >
           <input type="radio" name="payment" value="SEPAY_TRANSFER" checked={paymentMethod === 'SEPAY_TRANSFER'} onChange={() => {}} />
-          <h4>🏦 Chuyển khoản ngân hàng (SEPAY)</h4>
+          <h4>Chuyển khoản ngân hàng (SEPAY)</h4>
           <p>Quét mã QR để thanh toán, nhận hàng khi hoàn tất</p>
         </div>
       </div>
@@ -306,9 +370,15 @@ const CheckoutPage = () => {
   // Render step 4: Order confirmation
   const renderStep4 = () => (
     <div className="checkout-step confirmation">
-      <div className="success-icon">✓</div>
-      <h2>Đặt hàng thành công!</h2>
-      <p>Cảm ơn bạn đã đặt hàng tại cửa hàng của chúng tôi.</p>
+      <div className={paymentSuccess || paymentMethod === 'COD' ? "success-icon" : "pending-icon"}>
+        {paymentSuccess || paymentMethod === 'COD' ? '✓' : '⏳'}
+      </div>
+      <h2>{paymentSuccess || paymentMethod === 'COD' ? 'Đặt hàng thành công!' : 'Chờ xác nhận thanh toán...'}</h2>
+      <p>
+        {paymentSuccess || paymentMethod === 'COD'
+          ? 'Cảm ơn bạn đã đặt hàng tại cửa hàng của chúng tôi.' 
+          : 'Vui lòng hoàn tất thanh toán qua mã QR dưới đây'}
+      </p>
 
       {orderConfirmation && (
         <div className="confirmation-details">
@@ -333,11 +403,28 @@ const CheckoutPage = () => {
         </div>
       )}
 
-      {sepayQr && paymentMethod === 'SEPAY_TRANSFER' && (
+      {sepayQr && paymentMethod === 'SEPAY_TRANSFER' && !paymentSuccess && (
         <div className="sepay-qr-section">
-          <h3>📱 Mã QR thanh toán</h3>
+          <h3>Mã QR thanh toán</h3>
           <p>Quét mã QR bằng ứng dụng ngân hàng để thanh toán</p>
           <img src={sepayQr} alt="Sepay QR Code" className="qr-code" />
+          
+          <div className="bank-transfer-info" style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px', textAlign: 'left', display: 'inline-block', border: '1px dashed #d9d9d9' }}>
+            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#1677ff', fontSize: '1.1em' }}>Hoặc chuyển khoản thủ công:</p>
+            <p style={{ margin: '8px 0', fontSize: '15px' }}>Ngân hàng: <strong>MB Bank</strong></p>
+            <p style={{ margin: '8px 0', fontSize: '15px' }}>Chủ tài khoản: <strong>VO MINH TAM</strong></p>
+            <p style={{ margin: '8px 0', fontSize: '15px' }}>Số tài khoản: <strong>0334088130</strong></p>
+            <p style={{ margin: '8px 0', fontSize: '15px' }}>Số tiền: <strong style={{color: '#ff4d4f'}}>{(orderConfirmation?.totalAmount || 0).toLocaleString('vi-VN')} ₫</strong></p>
+            <p style={{ margin: '8px 0', fontSize: '15px' }}>Nội dung CK: <strong>THANH-TOAN-{orderConfirmation?.orderId}</strong></p>
+            <p style={{ margin: '10px 0 0 0', color: '#faad14', fontSize: '0.9em', fontStyle: 'italic' }}>* Vui lòng ghi chính xác Nội dung giùm để hệ thống tự động xác nhận đơn hàng.</p>
+          </div>
+
+          {paymentPolling && (
+            <div className="payment-polling" style={{ marginTop: '20px' }}>
+              <div className="spinner"></div>
+              <p>Hệ thống đang kiểm tra giao dịch...</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -347,13 +434,31 @@ const CheckoutPage = () => {
         </div>
       )}
 
-      <div className="button-group">
-        <button onClick={handleGoToOrderDetail} className="btn btn-primary">
-          Xem chi tiết đơn hàng
-        </button>
-        <button onClick={() => navigate('/')} className="btn btn-secondary">
-          Quay về trang chủ
-        </button>
+      <div className="button-group" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {paymentSuccess || paymentMethod === 'COD' ? (
+          <>
+            <button onClick={handleGoToOrderDetail} className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
+              Xem chi tiết đơn hàng
+            </button>
+            <button onClick={() => navigate('/')} className="btn btn-secondary" style={{ width: '100%', padding: '12px' }}>
+              Quay về trang chủ
+            </button>
+          </>
+        ) : (
+          <>
+            <button 
+              onClick={handleCancelOrder} 
+              className="btn btn-danger" 
+              style={{ width: '100%', padding: '12px', opacity: canceling ? 0.7 : 1 }}
+              disabled={canceling}
+            >
+              {canceling ? 'Đang hủy...' : 'Không thanh toán nữa, Hủy đơn'}
+            </button>
+            <p className="waiting-info" style={{ textAlign: 'center', marginTop: '10px' }}>
+              Đang chờ bạn thanh toán Sepay...
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

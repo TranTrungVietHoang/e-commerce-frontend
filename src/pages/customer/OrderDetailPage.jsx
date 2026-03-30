@@ -4,7 +4,7 @@ import orderService from '../../services/orderService';
 import './OrderDetailPage.css';
 
 const OrderDetailPage = () => {
-  const { orderId } = useParams();
+  const { id: orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,14 +21,14 @@ const OrderDetailPage = () => {
           orderService.getOrderStatusHistory(orderId)
         ]);
 
-        if (detailResponse.success) {
-          setOrder(detailResponse.data);
+        if (detailResponse) {
+          setOrder(detailResponse);
         } else {
-          setError(detailResponse.message || 'Lỗi tải đơn hàng');
+          setError('Lỗi tải đơn hàng');
         }
 
-        if (historyResponse.success) {
-          setStatusHistory(historyResponse.data || []);
+        if (historyResponse) {
+          setStatusHistory(historyResponse || []);
         }
       } catch (err) {
         setError('Lỗi tải dữ liệu: ' + err.message);
@@ -44,13 +44,24 @@ const OrderDetailPage = () => {
 
   // Format date
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!date) return '';
+    if (typeof date === 'string' && date.includes('/')) return date;
+    try {
+      if (Array.isArray(date)) {
+        return new Date(date[0], date[1] - 1, date[2], date[3] || 0, date[4] || 0).toLocaleString('vi-VN');
+      }
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return String(date);
+      return d.toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch(e) {
+      return String(date);
+    }
   };
 
   // Cancel order
@@ -60,12 +71,12 @@ const OrderDetailPage = () => {
     try {
       setCanceling(true);
       const response = await orderService.cancelOrder(orderId);
-      if (response.success) {
+      if (response) {
         setOrder({ ...order, status: 'CANCELLED' });
         setError('');
         alert('Hủy đơn hàng thành công!');
       } else {
-        setError(response.message || 'Lỗi hủy đơn');
+        setError('Lỗi hủy đơn');
       }
     } catch (err) {
       setError('Lỗi hủy đơn: ' + err.message);
@@ -99,22 +110,22 @@ const OrderDetailPage = () => {
   };
 
   if (loading) {
-    return <div className="order-detail-container loading">⏳ Đang tải dữ liệu...</div>;
+    return <div className="order-detail-container loading">Đang tải dữ liệu...</div>;
   }
 
   if (error && !order) {
-    return <div className="order-detail-container error">❌ {error}</div>;
+    return <div className="order-detail-container error">Lỗi: {error}</div>;
   }
 
   if (!order) {
-    return <div className="order-detail-container">📭 Không tìm thấy đơn hàng</div>;
+    return <div className="order-detail-container">Không tìm thấy đơn hàng</div>;
   }
 
   return (
     <div className="order-detail-container">
       {error && (
         <div className="error-alert">
-          <span>❌ {error}</span>
+          <span>Lỗi: {error}</span>
           <button onClick={() => setError('')}>×</button>
         </div>
       )}
@@ -133,7 +144,7 @@ const OrderDetailPage = () => {
       {/* Order Timeline */}
       {statusHistory.length > 0 && (
         <div className="order-timeline">
-          <h3>📜 Lịch sử trạng thái</h3>
+          <h3>Lịch sử trạng thái</h3>
           <div className="timeline">
             {statusHistory.map((history, index) => (
               <div key={index} className="timeline-item">
@@ -144,7 +155,7 @@ const OrderDetailPage = () => {
                 <div className="timeline-content">
                   <p className="timeline-status">{getStatusLabel(history.status)}</p>
                   <p className="timeline-date">{formatDate(history.changedAt)}</p>
-                  {history.note && <p className="timeline-note">💬 {history.note}</p>}
+                  {history.note && <p className="timeline-note">Ghi chú: {history.note}</p>}
                 </div>
               </div>
             ))}
@@ -158,7 +169,7 @@ const OrderDetailPage = () => {
         <div className="order-left">
           {/* Order Items */}
           <div className="order-section">
-            <h3>📦 Sản phẩm đã đặt</h3>
+            <h3>Sản phẩm đã đặt</h3>
             <div className="order-items">
               {order.items && order.items.map((item, index) => (
                 <div key={index} className="order-item">
@@ -185,7 +196,7 @@ const OrderDetailPage = () => {
 
           {/* Shipping Information */}
           <div className="order-section">
-            <h3>🚚 Thông tin giao hàng</h3>
+            <h3>Thông tin giao hàng</h3>
             <div className="shipping-info">
               <div className="info-row">
                 <span className="label">Địa chỉ giao:</span>
@@ -203,7 +214,7 @@ const OrderDetailPage = () => {
         <div className="order-right">
           {/* Price Summary */}
           <div className="order-section summary">
-            <h3>💰 Tóm tắt đơn hàng</h3>
+            <h3>Tóm tắt đơn hàng</h3>
 
             <div className="summary-item">
               <span>Tiền hàng:</span>
@@ -254,13 +265,13 @@ const OrderDetailPage = () => {
                 className="btn btn-danger btn-full"
                 disabled={canceling}
               >
-                {canceling ? '⏳ Đang hủy...' : '❌ Hủy đơn hàng'}
+                {canceling ? 'Đang hủy...' : 'Hủy đơn hàng'}
               </button>
             )}
 
             {order.status === 'DELIVERED' && (
               <button className="btn btn-primary btn-full">
-                ⭐ Viết đánh giá
+                Viết đánh giá
               </button>
             )}
 

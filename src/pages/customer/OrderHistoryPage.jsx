@@ -19,8 +19,8 @@ const OrderHistoryPage = () => {
       try {
         setLoading(true);
         const response = await orderService.getMyOrders(page, size);
-        if (response.success) {
-          let items = response.data || [];
+        if (response) {
+          let items = response.content || [];
 
           // Apply filter
           if (filterStatus !== 'ALL') {
@@ -28,10 +28,10 @@ const OrderHistoryPage = () => {
           }
 
           setOrders(items);
-          setTotalPages(Math.ceil((response.pagination?.total || 0) / size));
+          setTotalPages(response.totalPages || 0);
           setError('');
         } else {
-          setError(response.message || 'Lỗi tải danh sách đơn');
+          setError('Lỗi tải danh sách đơn');
         }
       } catch (err) {
         setError('Lỗi: ' + err.message);
@@ -45,19 +45,31 @@ const OrderHistoryPage = () => {
 
   // Format date
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!date) return '';
+    if (typeof date === 'string' && date.includes('/')) return date;
+    try {
+      if (Array.isArray(date)) {
+        return new Date(date[0], date[1] - 1, date[2], date[3] || 0, date[4] || 0).toLocaleString('vi-VN');
+      }
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return String(date);
+      return d.toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch(e) {
+      return String(date);
+    }
   };
 
   // Get status color
   const getStatusColor = (status) => {
     const colors = {
       PENDING: '#f59e0b',
+      PAID: '#10b981', // xanh lá
       CONFIRMED: '#3b82f6',
       SHIPPING: '#8b5cf6',
       DELIVERED: '#10b981',
@@ -70,6 +82,7 @@ const OrderHistoryPage = () => {
   const getStatusLabel = (status) => {
     const labels = {
       PENDING: 'Chờ xác nhận',
+      PAID: 'Đã TT (Chờ giao)',
       CONFIRMED: 'Đã xác nhận',
       SHIPPING: 'Đang giao',
       DELIVERED: 'Đã giao',
@@ -121,7 +134,7 @@ const OrderHistoryPage = () => {
       {/* Filters */}
       <div className="filters">
         <div className="filter-group">
-          {['ALL', 'PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'].map(status => (
+          {['ALL', 'PENDING', 'PAID', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'].map(status => (
             <button
               key={status}
               className={`filter-btn ${filterStatus === status ? 'active' : ''}`}
@@ -200,14 +213,15 @@ const OrderHistoryPage = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="card-actions">
+                  <div className="card-actions-text">
                     {order.status === 'PENDING' && (
                       <button
                         onClick={(e) => handleCancelOrder(order.id, e)}
-                        className="action-btn cancel"
+                        className="btn btn-danger btn-sm"
                         title="Hủy đơn"
+                        style={{ marginRight: '8px', padding: '6px 14px', fontSize: '13px' }}
                       >
-                        ❌
+                        Hủy đơn
                       </button>
                     )}
                     <button
@@ -215,10 +229,11 @@ const OrderHistoryPage = () => {
                         e.stopPropagation();
                         handleViewDetail(order.id);
                       }}
-                      className="action-btn detail"
+                      className="btn btn-primary btn-sm"
                       title="Xem chi tiết"
+                      style={{ padding: '6px 14px', fontSize: '13px' }}
                     >
-                      👁️
+                      Xem chi tiết đơn hàng
                     </button>
                   </div>
                 </div>
