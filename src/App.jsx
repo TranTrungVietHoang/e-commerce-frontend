@@ -3,6 +3,7 @@ import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } 
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined,
+  DashboardOutlined, TagsOutlined, GiftOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -34,6 +35,10 @@ import OrderDetailPage from './pages/customer/OrderDetailPage';
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 import UserManagePage from './pages/admin/UserManagePage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ShopManagePage from './pages/admin/ShopManagePage';
+import CategoryManagePage from './pages/admin/CategoryManagePage';
+import VoucherManagePage from './pages/admin/VoucherManagePage';
 
 import './App.css';
 
@@ -49,14 +54,24 @@ const AppShell = () => {
   const menuItems = [
     { key: '/', icon: <HomeOutlined />, label: 'Trang chủ' },
     { key: '/search', icon: <AppstoreOutlined />, label: 'Khám phá' },
-    ...(isSeller || isAdmin ? [
+    ...(isSeller ? [
       { key: '/seller/products', icon: <ShopOutlined />, label: 'Quản lý kho' },
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
-      { key: '/seller/revenue', icon: <AppstoreOutlined />, label: 'Doanh thu' }
+      { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' },
+      { key: '/seller/categories', icon: <TagsOutlined />, label: 'Danh mục shop' },
+      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' }
+    ] : isAdmin ? [
+      { key: '/admin/revenue', icon: <DashboardOutlined />, label: 'Thống kê' },
+      { key: '/admin/users', icon: <UserOutlined />, label: 'Người dùng' },
+      { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
+      { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
+      { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' }
     ] : []),
-    { key: '/cart', icon: <ShoppingCartOutlined />, label: 'Giỏ hàng' },
+    ...(isAdmin ? [] : [
+      { key: '/cart', icon: <ShoppingCartOutlined />, label: 'Giỏ hàng' }
+    ]),
   ];
 
   // Dropdown menu cho avatar khi đã đăng nhập
@@ -132,7 +147,7 @@ const AppShell = () => {
             <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
-            <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+            <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
 
             {/* ── Seller ── */}
             <Route path="/seller/products" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
@@ -143,6 +158,14 @@ const AppShell = () => {
 
             {/* ── Admin ── */}
             <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
+            <Route path="/admin/revenue" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
+            <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
+            <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
+
+            {/* ── Seller Extra (Shared management pages) ── */}
+            <Route path="/seller/categories" element={<ProtectedRoute roles={['ROLE_SELLER']}><CategoryManagePage /></ProtectedRoute>} />
+            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER']}><VoucherManagePage /></ProtectedRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Empty, Input, InputNumber, List, Space, Table, Tag, Typography, message, Modal } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Alert, Button, Card, Empty, Input, InputNumber, List, Space, Table, Tag, Typography, message, Modal, Select, Checkbox } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useCart from '../../hooks/useCart';
 import voucherService from '../../services/voucherService';
@@ -14,57 +15,179 @@ const CartPage = () => {
   const navigate = useNavigate();
   const [voucherCode, setVoucherCode] = useState('');
   const [availableVouchers, setAvailableVouchers] = useState([]);
-  const [voucherResult, setVoucherResult] = useState(null);
   const [applyingVoucher, setApplyingVoucher] = useState(false);
+  const [selectedShopId, setSelectedShopId] = useState(null);
+  const [vouchersByShop, setVouchersByShop] = useState({});
+  const [selectedItems, setSelectedItems] = useState({});  // { itemId: true/false }
+  const [quantityChanges, setQuantityChanges] = useState({}); // Track pending quantity changes
 
-  useEffect(() => {
-    setVoucherResult(null);
-  }, [cart.subtotal, cart.totalItems]);
+  // Nhóm sản phẩm theo shopId
+  const groupedByShop = useMemo(() => {
+    if (!cart.items?.length) return {};
+    return cart.items.reduce((acc, item) => {
+      const shopId = item.shopId || 0;
+      if (!acc[shopId]) {
+        acc[shopId] = { shopName: item.shopName || 'Unknown Shop', items: [] };
+      }
+      acc[shopId].items.push(item);
+      return acc;
+    }, {});
+  }, [cart.items]);
 
+  // Tính tổng tiền của shop được chọn
+  const selectedShopTotal = useMemo(() => {
+    if (!selectedShopId || !groupedByShop[selectedShopId]) return 0;
+    return groupedByShop[selectedShopId].items.reduce((sum, item) => sum + item.lineTotal, 0);
+  }, [selectedShopId, groupedByShop]);
+
+  // Tính tổng tiền toàn giỏ (với voucher nếu có) - chỉ tính những item được chọn
+  const totalSummary = useMemo(() => {
+    let totalSubtotal = 0;
+    let totalDiscount = 0;
+
+    Object.entries(groupedByShop).forEach(([shopId, shopData]) => {
+      // Chỉ tính những item được chọn của shop này
+      const shopSubtotal = shopData.items
+        .filter(item => selectedItems[item.id])
+        .reduce((sum, item) => sum + item.lineTotal, 0);
+      totalSubtotal += shopSubtotal;
+
+      // Chỉ áp voucher nếu có item được chọn của shop này
+      if (shopSubtotal > 0 && vouchersByShop[shopId]) {
+        totalDiscount += vouchersByShop[shopId].discountAmount || 0;
+      }
+    });
+
+    return {
+      subtotal: totalSubtotal,
+      discount: totalDiscount,
+      final: totalSubtotal - totalDiscount
+    };
+  }, [groupedByShop, vouchersByShop, selectedItems]);
+
+  // Xử lý debounce khi thay đổi số lượng
   useEffect(() => {
-    if (!cart.items?.length || hasMultipleShops || !primaryShopId || !cart.subtotal) {
+    if (Object.keys(quantityChanges).length === 0) return;
+
+    const timer = setTimeout(() => {
+      Object.entries(quantityChanges).forEach(([itemId, qty]) => {
+        updateCartItem(parseInt(itemId), qty);
+      });
+      setQuantityChanges({});
+    }, 800); // Debounce 800ms
+
+    return () => clearTimeout(timer);
+  }, [quantityChanges, updateCartItem]);
+
+  // Mặc định chọn shop đầu tiên - chỉ chạy 1 lần khi có shop
+  useEffect(() => {
+    const shopIds = Object.keys(groupedByShop);
+    if (shopIds.length > 0 && !selectedShopId) {
+      setSelectedShopId(parseInt(shopIds[0]));
+    }
+  }, [Object.keys(groupedByShop).length > 0 ? 'has-shops' : 'no-shops']); // Chỉ phụ thuộc vào có shop hay không
+
+  // Lấy voucher khả dụng cho shop được chọn - chỉ gọi khi shop thay đổi
+  useEffect(() => {
+    if (!cart.items?.length || !selectedShopId) {
       setAvailableVouchers([]);
       return;
     }
-    voucherService
-      .getAvailableVouchers(primaryShopId, cart.subtotal)
-      .then(setAvailableVouchers)
-      .catch(() => setAvailableVouchers([]));
-  }, [cart.items, cart.subtotal, primaryShopId, hasMultipleShops]);
+    const timer = setTimeout(() => {
+      voucherService
+        .getAvailableVouchers(selectedShopId, selectedShopTotal)
+        .then(setAvailableVouchers)
+        .catch(() => setAvailableVouchers([]));
+    }, 500); // Debounce 500ms để tránh gọi API quá thường xuyên khi điều chỉnh giá
 
-  const finalAmount = useMemo(() => voucherResult?.finalAmount ?? cart.subtotal ?? 0, [voucherResult, cart.subtotal]);
+    return () => clearTimeout(timer);
+  }, [selectedShopId]); // Bỏ selectedShopTotal khỏi dependency để tránh gọi lại khi thay đổi quantity
 
   if (!cart.items?.length) {
     return <Empty description="Gio hang dang trong" style={{ marginTop: 80 }} />;
   }
 
-  const handleApplyVoucher = async () => {
+  // Toggle chon/bo chon 1 item
+  const toggleItemSelection = useCallback((itemId) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  }, []);
+
+  // Khi nhấn vào item, tự động chọn shop đó
+  const handleItemClick = useCallback((itemShopId) => {
+    setSelectedShopId(itemShopId);
+  }, []);
+
+  const handleApplyVoucher = useCallback(async () => {
     if (!voucherCode.trim()) {
       message.warning('Nhap ma voucher truoc khi ap dung');
       return;
     }
-    if (hasMultipleShops || !primaryShopId) {
-      message.warning('Gio hang co nhieu shop, chua ho tro ap voucher cho nhieu shop cung luc');
+    if (!selectedShopId) {
+      message.warning('Vui long chon shop');
       return;
     }
     setApplyingVoucher(true);
     try {
-      const result = await voucherService.applyVoucher(voucherCode.trim(), cart.subtotal || 0, primaryShopId);
-      setVoucherResult(result);
-      message.success('Ap dung voucher thanh cong');
+      const result = await voucherService.applyVoucher(voucherCode.trim(), selectedShopTotal, selectedShopId);
+      setVouchersByShop(prev => ({
+        ...prev,
+        [selectedShopId]: {
+          code: voucherCode.trim(),
+          ...result
+        }
+      }));
+      setVoucherCode('');
+      message.success('Ap dung voucher thanh cong cho shop nay');
     } catch (error) {
-      setVoucherResult(null);
       message.error(error.message || 'Khong ap dung duoc voucher');
     } finally {
       setApplyingVoucher(false);
     }
-  };
+  }, [voucherCode, selectedShopTotal, selectedShopId]);
 
-  const handleCheckout = () => {
+  const handleRemoveVoucher = useCallback((shopId) => {
+    setVouchersByShop(prev => {
+      const updated = { ...prev };
+      delete updated[shopId];
+      return updated;
+    });
+    message.success('Xoa voucher thanh cong');
+  }, []);
+
+  // Chon tất cả items của 1 shop
+  const selectAllShopItems = useCallback((shopId) => {
+    setSelectedItems(prev => {
+      if (!groupedByShop[shopId]) return prev;
+      const shopItems = groupedByShop[shopId].items;
+      const allSelected = shopItems.every(item => prev[item.id]);
+
+      const updated = { ...prev };
+      shopItems.forEach(item => {
+        updated[item.id] = !allSelected;
+      });
+      return updated;
+    });
+  }, [groupedByShop]);
+
+  const handleCheckout = useCallback(() => {
     if (!cart.items?.length) {
       message.warning('Gio hang trong, khong the thanh toan');
       return;
     }
+
+    // Kiem tra co item nao duoc chon hay khong
+    const hasSelectedItems = Object.values(selectedItems).some(v => v);
+    if (!hasSelectedItems) {
+      message.warning('Vui long chon it nhat 1 san pham de thanh toan');
+      return;
+    }
+
+    // Loc chi lay cac item da chon
+    const selectItemsForCheckout = cart.items.filter(item => selectedItems[item.id]);
+
     if (hasMultipleShops) {
       Modal.confirm({
         title: 'Canh bao',
@@ -72,24 +195,36 @@ const CartPage = () => {
         okText: 'Tiep tuc',
         cancelText: 'Huy',
         onOk() {
-          navigate('/checkout', { state: { voucherResult } });
+          navigate('/checkout', { state: { vouchersByShop, selectedItemsForCheckout } });
         },
       });
     } else {
-      navigate('/checkout', { state: { voucherResult } });
+      navigate('/checkout', { state: { vouchersByShop, selectedItemsForCheckout } });
     }
-  };
+  }, [cart.items, selectedItems, hasMultipleShops, vouchersByShop, navigate]);
 
-  const columns = [
+  const columns = useMemo(() => [
+    {
+      title: 'Chon',
+      width: 50,
+      render: (_, record) => (
+        <Checkbox
+          checked={selectedItems[record.id] || false}
+          onChange={() => toggleItemSelection(record.id)}
+        />
+      ),
+    },
     {
       title: 'San pham',
       dataIndex: 'productName',
       render: (_, record) => (
-        <Space>
+        <Space
+          onClick={() => handleItemClick(record.shopId)}
+          style={{ cursor: 'pointer' }}
+        >
           <img src={record.imageUrl || 'https://via.placeholder.com/72'} alt={record.productName} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} />
           <div>
             <Text strong>{record.productName}</Text>
-            <div><Text type="secondary">{record.shopName}</Text></div>
             {record.variantName && <div><Text type="secondary">{record.variantName}</Text></div>}
             {record.flashSaleActive && <Tag color="red">Flash sale den {new Date(record.flashSaleEndAt).toLocaleString()}</Tag>}
           </div>
@@ -105,10 +240,13 @@ const CartPage = () => {
           min={1}
           max={record.availableStock}
           style={{ width: '100%' }}
-          value={quantity}
+          value={quantityChanges[record.id] !== undefined ? quantityChanges[record.id] : quantity}
           onChange={(value) => {
             if (!value) return;
-            updateCartItem(record.id, value);
+            setQuantityChanges(prev => ({
+              ...prev,
+              [record.id]: value
+            }));
           }}
         />
       ),
@@ -134,10 +272,50 @@ const CartPage = () => {
     {
       title: '',
       key: 'action',
-      width: 100,
-      render: (_, record) => <Button danger onClick={() => removeCartItem(record.id)}>Xoa</Button>,
+      width: 80,
+      render: (_, record) => <Button danger icon={<DeleteOutlined />} onClick={() => removeCartItem(record.id)} />,
     },
-  ];
+  ], [selectedItems, toggleItemSelection, handleItemClick, removeCartItem, quantityChanges]);
+
+  // Component hiển thị sản phẩm của một shop
+  const ShopItemsSection = React.memo(({ shopData, shopId }) => {
+    const shopItemsSelected = shopData.items.filter(it => selectedItems[it.id]).length;
+    const allShopItemsSelected = shopItemsSelected === shopData.items.length && shopData.items.length > 0;
+
+    return (
+      <Card
+        style={{ marginBottom: 16 }}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Checkbox
+              checked={allShopItemsSelected}
+              indeterminate={shopItemsSelected > 0 && !allShopItemsSelected}
+              onChange={() => selectAllShopItems(shopId)}
+            />
+            <Text strong style={{ fontSize: 16 }}>{shopData.shopName}</Text>
+            <Tag color="blue">{shopItemsSelected}/{shopData.items.length} san pham</Tag>
+          </div>
+        }
+      >
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={shopData.items}
+          pagination={false}
+          size="small"
+        />
+        {shopData.items.length > 1 && (
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <Text>
+              Tong cong: <Text strong>{formatCurrency(shopData.items.reduce((sum, item) => sum + item.lineTotal, 0))}</Text>
+            </Text>
+          </div>
+        )}
+      </Card>
+    );
+  });
+
+  ShopItemsSection.displayName = 'ShopItemsSection';
 
   return (
     <div style={{ padding: 24 }}>
@@ -148,49 +326,77 @@ const CartPage = () => {
             <Alert
               type="info"
               showIcon
-              message="Gio hang dang co san pham tu nhieu shop"
-              description="Voucher hien duoc toi uu cho tung shop. Hay tach don neu muon ap voucher chinh xac."
+              message="Gio hang co san pham tu nhieu shop"
+              description="Hay chon shop ben phai de ap voucher. Cac don hang se tach theo shop khi thanh toan."
               style={{ marginBottom: 16 }}
             />
           )}
-          <Table rowKey="id" columns={columns} dataSource={cart.items} pagination={false} />
+
+          <div>
+            {Object.entries(groupedByShop).map(([shopId, shopData]) => (
+              <ShopItemsSection key={shopId} shopId={parseInt(shopId)} shopData={shopData} />
+            ))}
+          </div>
         </Card>
-        <Space direction="vertical" size={16} style={{ width: 360 }}>
+        <Space direction="vertical" size={16} style={{ width: 380 }}>
           <Card>
             <Title level={4}>Voucher</Title>
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                value={voucherCode}
-                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                placeholder="Nhap ma voucher"
-                disabled={hasMultipleShops}
-              />
-              <Button type="primary" loading={applyingVoucher} onClick={handleApplyVoucher} disabled={hasMultipleShops}>
-                Ap dung
-              </Button>
-            </Space.Compact>
-            <List
-              size="small"
-              style={{ marginTop: 16 }}
-              locale={{ emptyText: hasMultipleShops ? 'Khong hien voucher khi gio hang co nhieu shop' : 'Khong co voucher phu hop' }}
-              dataSource={availableVouchers}
-              renderItem={(voucher) => (
-                <List.Item actions={[<Button type="link" onClick={() => setVoucherCode(voucher.code)}>Chon</Button>]}>
-                  <List.Item.Meta
-                    title={`${voucher.code} - ${voucher.name}`}
-                    description={`Toi thieu ${formatCurrency(voucher.minOrderValue || 0)} | Giam ${voucher.discountType === 'PERCENT' ? `${voucher.discountValue}%` : formatCurrency(voucher.discountValue)}`}
+            {selectedShopId && (
+              <>
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input
+                    value={voucherCode}
+                    onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                    placeholder="Nhap ma voucher"
                   />
-                </List.Item>
-              )}
-            />
+                  <Button type="primary" loading={applyingVoucher} onClick={handleApplyVoucher}>
+                    Ap dung
+                  </Button>
+                </Space.Compact>
+
+                {vouchersByShop[selectedShopId] && (
+                  <div style={{ marginTop: 12, padding: 8, backgroundColor: '#f0f5ff', borderRadius: 4 }}>
+                    <Text type="success">
+                      {vouchersByShop[selectedShopId].code} - Giam {formatCurrency(vouchersByShop[selectedShopId].discountAmount || 0)}
+                    </Text>
+                    <Button
+                      danger
+                      size="small"
+                      style={{ float: 'right' }}
+                      onClick={() => handleRemoveVoucher(selectedShopId)}
+                    >
+                      Xoa
+                    </Button>
+                  </div>
+                )}
+
+                <List
+                  size="small"
+                  style={{ marginTop: 16 }}
+                  locale={{ emptyText: 'Khong co voucher phu hop' }}
+                  dataSource={availableVouchers}
+                  renderItem={(voucher) => (
+                    <List.Item actions={[<Button type="link" onClick={() => setVoucherCode(voucher.code)}>Chon</Button>]}>
+                      <List.Item.Meta
+                        title={`${voucher.code} - ${voucher.name}`}
+                        description={`Toi thieu ${formatCurrency(voucher.minOrderValue || 0)} | Giam ${voucher.discountType === 'PERCENT' ? `${voucher.discountValue}%` : formatCurrency(voucher.discountValue)}`}
+                      />
+                    </List.Item>
+                  )}
+                />
+              </>
+            )}
           </Card>
+
           <Card>
             <Title level={4}>Tong ket</Title>
             <Space direction="vertical" style={{ width: '100%' }}>
               <Text>Tong san pham: {cart.totalItems}</Text>
-              <Text>Tam tinh: {formatCurrency(cart.subtotal)}</Text>
-              {voucherResult && <Text>Giam gia: -{formatCurrency(voucherResult.discountAmount)}</Text>}
-              <Text strong style={{ fontSize: 18 }}>Thanh toan: {formatCurrency(finalAmount)}</Text>
+              <Text>Tam tinh: {formatCurrency(totalSummary.subtotal)}</Text>
+              {totalSummary.discount > 0 && (
+                <Text type="success">Giam gia: -{formatCurrency(totalSummary.discount)}</Text>
+              )}
+              <Text strong style={{ fontSize: 18, color: '#1890ff' }}>Thanh toan: {formatCurrency(totalSummary.final)}</Text>
               <Button type="primary" size="large" block onClick={handleCheckout}>
                 Tien hanh thanh toan
               </Button>

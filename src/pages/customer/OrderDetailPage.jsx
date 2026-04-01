@@ -1,289 +1,269 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { Card, Divider, Space, Button, Tag, Typography, message, Row, Col, Table, Empty, Spin } from 'antd';
+import { useParams, useNavigate } from 'react-router-dom';
 import orderService from '../../services/orderService';
-import './OrderDetailPage.css';
+
+const { Title, Text } = Typography;
+
+const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+
+const STATUS_LABELS = {
+  'PENDING': 'Chờ duyệt',
+  'CONFIRMED': 'Đã xác nhận',
+  'SHIPPING': 'Đang giao',
+  'DELIVERED': 'Thành công',
+  'CANCELLED': 'Hủy'
+};
+
+const STATUS_COLORS = {
+  'PENDING': 'orange',
+  'CONFIRMED': 'blue',
+  'SHIPPING': 'cyan',
+  'DELIVERED': 'green',
+  'CANCELLED': 'red'
+};
 
 const OrderDetailPage = () => {
   const { id: orderId } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
-  const [statusHistory, setStatusHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [canceling, setCanceling] = useState(false);
 
-  // Load order detail and status history
   useEffect(() => {
-    const loadOrderData = async () => {
+    const loadOrder = async () => {
       try {
         setLoading(true);
-        const [detailResponse, historyResponse] = await Promise.all([
-          orderService.getOrderDetail(orderId),
-          orderService.getOrderStatusHistory(orderId)
-        ]);
-
-        if (detailResponse) {
-          setOrder(detailResponse);
+        const response = await orderService.getOrderDetail(orderId);
+        console.log('Order Detail Response:', response);
+        if (response) {
+          setOrder(response);
         } else {
-          setError('Lỗi tải đơn hàng');
+          message.error('Không tìm thấy đơn hàng');
+          navigate('/orders');
         }
-
-        if (historyResponse) {
-          setStatusHistory(historyResponse || []);
-        }
-      } catch (err) {
-        setError('Lỗi tải dữ liệu: ' + err.message);
+      } catch (error) {
+        console.error('Error loading order:', error);
+        message.error('Lỗi tải dữ liệu: ' + error.message);
+        navigate('/orders');
       } finally {
         setLoading(false);
       }
     };
 
     if (orderId) {
-      loadOrderData();
+      loadOrder();
     }
-  }, [orderId]);
+  }, [orderId, navigate]);
 
-  // Format date
-  const formatDate = (date) => {
-    if (!date) return '';
-    if (typeof date === 'string' && date.includes('/')) return date;
-    try {
-      if (Array.isArray(date)) {
-        return new Date(date[0], date[1] - 1, date[2], date[3] || 0, date[4] || 0).toLocaleString('vi-VN');
-      }
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return String(date);
-      return d.toLocaleDateString('vi-VN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch(e) {
-      return String(date);
-    }
-  };
+  const handleCancelOrder = () => {
+    const confirmed = window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?');
+    if (!confirmed) return;
 
-  // Cancel order
-  const handleCancelOrder = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
-
-    try {
-      setCanceling(true);
-      const response = await orderService.cancelOrder(orderId);
-      if (response) {
+    setCanceling(true);
+    orderService.cancelOrder(orderId)
+      .then(() => {
+        message.success('Hủy đơn hàng thành công');
         setOrder({ ...order, status: 'CANCELLED' });
-        setError('');
-        alert('Hủy đơn hàng thành công!');
-      } else {
-        setError('Lỗi hủy đơn');
-      }
-    } catch (err) {
-      setError('Lỗi hủy đơn: ' + err.message);
-    } finally {
-      setCanceling(false);
-    }
-  };
-
-  // Get status badge color
-  const getStatusColor = (status) => {
-    const colors = {
-      PENDING: '#f59e0b',
-      CONFIRMED: '#3b82f6',
-      SHIPPING: '#8b5cf6',
-      DELIVERED: '#10b981',
-      CANCELLED: '#ef4444'
-    };
-    return colors[status] || '#6b7280';
-  };
-
-  // Get status label in Vietnamese
-  const getStatusLabel = (status) => {
-    const labels = {
-      PENDING: 'Chờ xác nhận',
-      CONFIRMED: 'Đã xác nhận',
-      SHIPPING: 'Đang giao',
-      DELIVERED: 'Đã giao',
-      CANCELLED: 'Đã hủy'
-    };
-    return labels[status] || status;
+      })
+      .catch(err => {
+        message.error('Lỗi hủy đơn: ' + err.message);
+      })
+      .finally(() => {
+        setCanceling(false);
+      });
   };
 
   if (loading) {
-    return <div className="order-detail-container loading">Đang tải dữ liệu...</div>;
-  }
-
-  if (error && !order) {
-    return <div className="order-detail-container error">Lỗi: {error}</div>;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   if (!order) {
-    return <div className="order-detail-container">Không tìm thấy đơn hàng</div>;
+    return (
+      <div style={{ padding: '24px' }}>
+        <Card>
+          <Empty description="Không tìm thấy đơn hàng" />
+        </Card>
+      </div>
+    );
   }
 
+  const columns = [
+    {
+      title: 'Sản phẩm',
+      dataIndex: 'productName',
+      key: 'productName',
+      render: (name) => <Text>{name}</Text>
+    },
+    {
+      title: 'Biến thể',
+      dataIndex: 'variantName',
+      key: 'variantName',
+      render: (name) => <Text type="secondary">{name || 'N/A'}</Text>
+    },
+    {
+      title: 'Số lượng',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+      render: (qty) => <Text>{qty}</Text>
+    },
+    {
+      title: 'Đơn giá',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 130,
+      render: (price) => <Text>{money(price)}</Text>
+    },
+    {
+      title: 'Tổng',
+      key: 'total',
+      width: 130,
+      render: (_, record) => <Text strong>{money(record.unitPrice * record.quantity)}</Text>
+    }
+  ];
+
   return (
-    <div className="order-detail-container">
-      {error && (
-        <div className="error-alert">
-          <span>Lỗi: {error}</span>
-          <button onClick={() => setError('')}>×</button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="order-header">
-        <div className="order-title">
-          <h1>Chi tiết đơn hàng</h1>
-          <p className="order-id">Mã đơn: <strong>#{order.id}</strong></p>
-        </div>
-        <div className={`status-badge`} style={{ backgroundColor: getStatusColor(order.status) }}>
-          {getStatusLabel(order.status)}
-        </div>
-      </div>
-
-      {/* Order Timeline */}
-      {statusHistory.length > 0 && (
-        <div className="order-timeline">
-          <h3>Lịch sử trạng thái</h3>
-          <div className="timeline">
-            {statusHistory.map((history, index) => (
-              <div key={index} className="timeline-item">
-                <div
-                  className="timeline-marker"
-                  style={{ backgroundColor: getStatusColor(history.status) }}
-                />
-                <div className="timeline-content">
-                  <p className="timeline-status">{getStatusLabel(history.status)}</p>
-                  <p className="timeline-date">{formatDate(history.changedAt)}</p>
-                  {history.note && <p className="timeline-note">Ghi chú: {history.note}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="order-content">
-        {/* Left: Items and Details */}
-        <div className="order-left">
-          {/* Order Items */}
-          <div className="order-section">
-            <h3>Sản phẩm đã đặt</h3>
-            <div className="order-items">
-              {order.items && order.items.map((item, index) => (
-                <div key={index} className="order-item">
-                  <img
-                    src={item.product?.image}
-                    alt={item.product?.name}
-                    className="item-image"
-                  />
-                  <div className="item-details">
-                    <h4>{item.product?.name}</h4>
-                    <p className="variant">Loại: {item.variant?.name || 'N/A'}</p>
-                    <p className="quantity">Số lượng: <strong>{item.quantity}</strong></p>
-                    <p className="price">{(item.unitPrice || 0).toLocaleString('vi-VN')} ₫/cái</p>
-                  </div>
-                  <div className="item-total">
-                    <p className="total-amount">
-                      {(item.quantity * (item.unitPrice || 0)).toLocaleString('vi-VN')} ₫
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Shipping Information */}
-          <div className="order-section">
-            <h3>Thông tin giao hàng</h3>
-            <div className="shipping-info">
-              <div className="info-row">
-                <span className="label">Địa chỉ giao:</span>
-                <span className="value">{order.shippingAddress}</span>
-              </div>
-              <div className="info-row">
-                <span className="label">Cửa hàng:</span>
-                <span className="value">{order.shop?.shopName || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Summary and Actions */}
-        <div className="order-right">
-          {/* Price Summary */}
-          <div className="order-section summary">
-            <h3>Tóm tắt đơn hàng</h3>
-
-            <div className="summary-item">
-              <span>Tiền hàng:</span>
-              <span>{(order.subtotal || 0).toLocaleString('vi-VN')} ₫</span>
-            </div>
-
-            {order.discountAmount > 0 && (
-              <div className="summary-item discount">
-                <span>Giảm giá:</span>
-                <span>-{(order.discountAmount || 0).toLocaleString('vi-VN')} ₫</span>
-              </div>
-            )}
-
-            {order.pointsUsed > 0 && (
-              <div className="summary-item discount">
-                <span>Điểm thưởng:</span>
-                <span>-{(order.pointsUsed || 0).toLocaleString('vi-VN')} ₫</span>
-              </div>
-            )}
-
-            <div className="summary-separator"></div>
-
-            <div className="summary-item total">
-              <span>Tổng cộng:</span>
-              <span>{(order.totalAmount || 0).toLocaleString('vi-VN')} ₫</span>
-            </div>
-
-            <div className="summary-item">
-              <span>Phương thức TT:</span>
-              <span>
-                {order.paymentMethod === 'COD'
-                  ? 'Thanh toán khi nhận'
-                  : 'Chuyển khoản'}
-              </span>
-            </div>
-
-            <div className="summary-item">
-              <span>Ngày đặt:</span>
-              <span>{formatDate(order.createdAt)}</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="order-actions">
-            {order.status === 'PENDING' && (
-              <button
-                onClick={handleCancelOrder}
-                className="btn btn-danger btn-full"
-                disabled={canceling}
+    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      <Card 
+        bordered={false} 
+        style={{ borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+      >
+        {/* Header */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12}>
+            <Title level={3} style={{ margin: 0 }}>
+              Chi tiết đơn hàng
+            </Title>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              Mã đơn: <Text strong>#{orderId}</Text>
+            </Text>
+          </Col>
+          <Col xs={24} sm={12} style={{ textAlign: 'right' }}>
+            <Space>
+              <Tag 
+                color={STATUS_COLORS[order.status]} 
+                style={{ padding: '6px 12px', fontSize: 13 }}
               >
-                {canceling ? 'Đang hủy...' : 'Hủy đơn hàng'}
-              </button>
+                {STATUS_LABELS[order.status] || order.status}
+              </Tag>
+              {order.status === 'PENDING' && (
+                <Button 
+                  danger 
+                  loading={canceling}
+                  onClick={handleCancelOrder}
+                >
+                  Hủy đơn
+                </Button>
+              )}
+              <Button onClick={() => navigate('/orders')}>
+                Quay lại
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+
+        {/* Order Information */}
+        <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12}>
+            <Card size="small" title="Thông tin đơn hàng" bordered={false}>
+              <Space direction="vertical" style={{ width: '100%' }} size="small">
+                <div>
+                  <Text type="secondary">Ngày đặt:</Text>
+                  <br />
+                  <Text strong>{new Date(order.createdAt).toLocaleString('vi-VN')}</Text>
+                </div>
+                <div>
+                  <Text type="secondary">Cửa hàng:</Text>
+                  <br />
+                  <Text strong>{order.shopName || 'N/A'}</Text>
+                </div>
+                <div>
+                  <Text type="secondary">Phương thức thanh toán:</Text>
+                  <br />
+                  <Text strong>
+                    {order.paymentMethod === 'COD' ? 'Thanh toán khi nhận' : 'Chuyển khoản'}
+                  </Text>
+                </div>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Card size="small" title="Thông tin giao hàng" bordered={false}>
+              <Space direction="vertical" style={{ width: '100%' }} size="small">
+                <div>
+                  <Text type="secondary">Người nhận:</Text>
+                  <br />
+                  <Text strong>{order.recipientName}</Text>
+                </div>
+                <div>
+                  <Text type="secondary">Số điện thoại:</Text>
+                  <br />
+                  <Text strong>{order.recipientPhone}</Text>
+                </div>
+                <div>
+                  <Text type="secondary">Địa chỉ:</Text>
+                  <br />
+                  <Text>{order.shippingAddress}</Text>
+                </div>
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Order Items */}
+        <Card 
+          size="small" 
+          title="Sản phẩm đã đặt" 
+          bordered={false}
+          style={{ marginBottom: 24 }}
+        >
+          <Table
+            columns={columns}
+            dataSource={order.orderItems || order.items || []}
+            rowKey={(_, index) => index}
+            pagination={false}
+            size="small"
+          />
+        </Card>
+
+        {/* Price Summary */}
+        <Card size="small" title="Tóm tắt đơn hàng" bordered={false}>
+          <Space direction="vertical" style={{ width: '100%' }} size={0}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
+              <Text>Tiền hàng:</Text>
+              <Text>{money(order.subtotal || order.totalAmount || 0)}</Text>
+            </div>
+            
+            {(order.discountAmount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
+                <Text type="danger">Giảm giá:</Text>
+                <Text type="danger">-{money(order.discountAmount)}</Text>
+              </div>
             )}
 
-            {order.status === 'DELIVERED' && (
-              <button className="btn btn-primary btn-full">
-                Viết đánh giá
-              </button>
+            {(order.pointsUsed || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
+                <Text type="danger">Điểm thưởng:</Text>
+                <Text type="danger">-{money(order.pointsUsed)}</Text>
+              </div>
             )}
 
-            <button
-              onClick={() => window.history.back()}
-              className="btn btn-secondary btn-full"
-            >
-              ← Quay lại danh sách
-            </button>
-          </div>
-        </div>
-      </div>
+            <Divider style={{ margin: '8px 0' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Text strong style={{ fontSize: 16 }}>Tổng cộng:</Text>
+              <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+                {money(order.totalAmount || 0)}
+              </Text>
+            </div>
+          </Space>
+        </Card>
+      </Card>
     </div>
   );
 };

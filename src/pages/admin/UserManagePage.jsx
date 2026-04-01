@@ -3,7 +3,7 @@ import {
   Avatar, Badge, Button, Card, Input, Modal, Space, Table, Tag, Typography, message, Select,
 } from 'antd';
 import {
-  LockOutlined, SearchOutlined, UnlockOutlined, UserOutlined, ReloadOutlined,
+  SearchOutlined, ReloadOutlined, UserOutlined,
 } from '@ant-design/icons';
 import adminService from '../../services/adminService';
 
@@ -23,7 +23,7 @@ const UserManagePage = () => {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const debounceRef = useRef(null);
 
-  const fetchUsers = useCallback(async (page = 1, kw = keyword, st = statusFilter) => {
+  const fetchUsers = useCallback(async (page = 1, kw = '', st = '') => {
     setLoading(true);
     try {
       const data = await adminService.getUsers({
@@ -32,17 +32,21 @@ const UserManagePage = () => {
         page: page - 1,
         size: pagination.pageSize,
       });
-      // data = PageResponse { items, totalElements, totalPages, pageNumber }
-      setUsers(data.items || []);
-      setPagination(prev => ({ ...prev, current: page, total: data.totalElements }));
+      setUsers(data.content || data.items || []);
+      setPagination(prev => ({ ...prev, current: page, total: data.totalElements || 0 }));
     } catch (err) {
+      console.error('Lỗi tải danh sách người dùng:', err);
       message.error(err?.message || 'Không thể tải danh sách người dùng');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
-  }, [keyword, statusFilter, pagination.pageSize]);
+  }, [pagination.pageSize]);
 
-  useEffect(() => { fetchUsers(1); }, []);
+  // Load dữ liệu lần đầu khi component mount
+  useEffect(() => { 
+    fetchUsers();
+  }, []);
 
   // Debounce tìm kiếm 300ms
   const handleSearch = (value) => {
@@ -53,7 +57,8 @@ const UserManagePage = () => {
 
   const handleStatusFilter = (value) => {
     setStatusFilter(value);
-    fetchUsers(1, keyword, value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchUsers(1, keyword, value), 300);
   };
 
   const handleToggleStatus = (record) => {
@@ -132,7 +137,6 @@ const UserManagePage = () => {
             size="small"
             danger={isActive}
             type={isActive ? 'default' : 'primary'}
-            icon={isActive ? <LockOutlined /> : <UnlockOutlined />}
             disabled={isAdmin}
             title={isAdmin ? 'Không thể thay đổi tài khoản Admin' : ''}
             onClick={() => handleToggleStatus(record)}
@@ -174,8 +178,8 @@ const UserManagePage = () => {
             value={statusFilter || undefined}
             onChange={handleStatusFilter}
             options={[
-              { value: 'ACTIVE', label: '✅ ACTIVE' },
-              { value: 'LOCKED', label: '🔒 LOCKED' },
+              { value: 'ACTIVE', label: 'Hoạt động' },
+              { value: 'LOCKED', label: 'Bị khóa' },
             ]}
           />
         </Space>

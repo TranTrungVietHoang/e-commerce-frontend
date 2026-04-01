@@ -136,6 +136,48 @@ const orderService = {
   },
 
   /**
+   * Lấy thống kê doanh thu toàn nền tảng (Admin only)
+   * GET /api/v1/revenue/platform?period=DAY
+   */
+  getPlatformRevenue: async (period = 'DAY') => {
+    try {
+      const response = await api.get(`/revenue/platform?period=${period}`);
+      return response;
+    } catch (error) {
+      console.error('Lỗi lấy doanh thu nền tảng:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy top sản phẩm bán chạy toàn nền tảng (Admin only)
+   * GET /api/v1/revenue/platform/top-products?limit=10
+   */
+  getPlatformTopProducts: async (limit = 10) => {
+    try {
+      const response = await api.get(`/revenue/platform/top-products?limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Lỗi lấy top products nền tảng:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy thống kê doanh thu hôm nay của shop
+   * GET /api/v1/revenue/shop/{shopId}/today
+   */
+  getTodayRevenue: async (shopId) => {
+    try {
+      const response = await api.get(`/revenue/shop/${shopId}/today`);
+      return response;
+    } catch (error) {
+      console.error('Lỗi lấy doanh thu shop hôm nay:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Lấy doanh thu hôm nay
    * GET /api/v1/revenue/shop/{shopId}/today
    */
