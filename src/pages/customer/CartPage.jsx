@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Empty, Input, InputNumber, List, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Empty, Input, InputNumber, List, Space, Table, Tag, Typography, message, Modal } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import useCart from '../../hooks/useCart';
 import voucherService from '../../services/voucherService';
 
@@ -10,6 +11,7 @@ const formatCurrency = (value) =>
 
 const CartPage = () => {
   const { cart, updateCartItem, removeCartItem, clearCart, primaryShopId, hasMultipleShops } = useCart();
+  const navigate = useNavigate();
   const [voucherCode, setVoucherCode] = useState('');
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [voucherResult, setVoucherResult] = useState(null);
@@ -55,6 +57,26 @@ const CartPage = () => {
       message.error(error.message || 'Khong ap dung duoc voucher');
     } finally {
       setApplyingVoucher(false);
+    }
+  };
+
+  const handleCheckout = () => {
+    if (!cart.items?.length) {
+      message.warning('Gio hang trong, khong the thanh toan');
+      return;
+    }
+    if (hasMultipleShops) {
+      Modal.confirm({
+        title: 'Canh bao',
+        content: 'Gio hang cua ban co san pham tu nhieu shop. Chung toi se tach don hang theo shop. Ban co muon tiep tuc?',
+        okText: 'Tiep tuc',
+        cancelText: 'Huy',
+        onOk() {
+          navigate('/checkout', { state: { voucherResult } });
+        },
+      });
+    } else {
+      navigate('/checkout', { state: { voucherResult } });
     }
   };
 
@@ -169,7 +191,12 @@ const CartPage = () => {
               <Text>Tam tinh: {formatCurrency(cart.subtotal)}</Text>
               {voucherResult && <Text>Giam gia: -{formatCurrency(voucherResult.discountAmount)}</Text>}
               <Text strong style={{ fontSize: 18 }}>Thanh toan: {formatCurrency(finalAmount)}</Text>
-              <Button danger onClick={() => clearCart()}>Xoa gio hang</Button>
+              <Button type="primary" size="large" block onClick={handleCheckout}>
+                Tien hanh thanh toan
+              </Button>
+              <Button danger block onClick={() => clearCart()}>
+                Xoa gio hang
+              </Button>
             </Space>
           </Card>
         </Space>

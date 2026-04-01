@@ -24,7 +24,9 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     productService.getProductById(id)
-      .then(res => setProduct(res.data?.data || null))
+      .then(res => {
+        setProduct(res || null);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);

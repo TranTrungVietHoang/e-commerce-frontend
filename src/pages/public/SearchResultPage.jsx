@@ -35,7 +35,10 @@ const SearchResultPage = () => {
   // Load categories cho filter
   useEffect(() => {
     productService.getCategories()
-      .then(res => setCategories(res.data?.data || []))
+      .then(res => {
+        const categories = Array.isArray(res) ? res : [];
+        setCategories(categories);
+      })
       .catch(() => {});
   }, []);
 
@@ -53,7 +56,7 @@ const SearchResultPage = () => {
     };
     searchService.search(params)
       .then(res => {
-        const data = res.data?.data;
+        const data = res || {};
         setProducts(data?.content || []);
         setTotal(data?.totalElements || 0);
       })

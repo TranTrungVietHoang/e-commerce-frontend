@@ -48,16 +48,29 @@ const HomePage = () => {
 
   useEffect(() => {
     homeService.getHomeData()
-      .then(res => setData(res.data?.data || null))
-      .catch(() => {})
+      .then(res => {
+        // API interceptor already unwraps to return the result directly
+        console.log('DEBUG: Home Data:', res);
+        setData(res || null);
+      })
+      .catch(err => {
+        console.error('DEBUG: API Error:', err);
+      })
       .finally(() => setLoadingHome(false));
   }, []);
 
   useEffect(() => {
-    productService.getPublicProducts().then(res => {
-        const _products = res.data?.data || res.data || [];
-        setProducts(Array.isArray(_products) ? _products : []);
-    }).catch(() => setProducts([]));
+    productService.getPublicProducts()
+      .then(res => {
+        // API interceptor already unwraps - res is already the array of products
+        console.log('DEBUG: Public Products:', res);
+        const _products = Array.isArray(res) ? res : [];
+        setProducts(_products);
+      })
+      .catch(err => {
+        console.error('DEBUG: Error fetching products:', err);
+        setProducts([]);
+      });
   }, []);
 
   useEffect(() => {
