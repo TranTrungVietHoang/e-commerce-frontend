@@ -3,6 +3,7 @@ import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } 
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
+  DashboardOutlined, TagsOutlined, GiftOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -27,6 +28,7 @@ import AddProductPage from './pages/seller/AddProductPage';
 import EditProductPage from './pages/seller/EditProductPage';
 import OrderManagePage from './pages/seller/OrderManagePage';
 import SellerRevenueDashboard from './pages/seller/SellerRevenueDashboard';
+import VoucherManagePage from './pages/seller/VoucherManagePage';
 
 // ── Customer pages ────────────────────────────────────────────────────────────
 import CartPage from './pages/customer/CartPage';
@@ -54,9 +56,10 @@ const AppShell = () => {
     { key: '/', icon: <HomeOutlined />, label: 'Trang chủ' },
     { key: '/search', icon: <AppstoreOutlined />, label: 'Khám phá' },
     ...(isSeller || isAdmin ? [
-      { key: '/seller/products', icon: <ShopOutlined />, label: 'Quản lý kho' },
+      { key: '/seller/products', icon: <TagsOutlined />, label: 'Quản lý kho' },
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
-      { key: '/seller/revenue', icon: <AppstoreOutlined />, label: 'Doanh thu' }
+      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Khuyến mãi' },
+      { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
       { key: '/wishlist', icon: <HeartOutlined />, label: 'Yêu thích' },
@@ -148,6 +151,7 @@ const AppShell = () => {
             <Route path="/seller/products/add" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><AddProductPage /></ProtectedRoute>} />
             <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
             <Route path="/seller/orders" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><OrderManagePage /></ProtectedRoute>} />
+            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
             <Route path="/seller/revenue" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerRevenueDashboard /></ProtectedRoute>} />
 
             {/* ── Admin ── */}
