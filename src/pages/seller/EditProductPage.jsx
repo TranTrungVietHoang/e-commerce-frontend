@@ -8,6 +8,7 @@ import {
   PlusOutlined, DeleteOutlined, LeftOutlined, RightOutlined, CheckOutlined, UploadOutlined
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import productService from '../../services/productService';
 
 const { Title, Text } = Typography;
@@ -17,6 +18,8 @@ const { Dragger } = Upload;
 const EditProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const shopId = user?.shopId;  // Get shopId from authenticated user
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
@@ -25,7 +28,6 @@ const EditProductPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const shopId = 1;
 
   useEffect(() => {
     const init = async () => {

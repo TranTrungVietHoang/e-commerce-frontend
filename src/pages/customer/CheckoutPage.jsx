@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
 import orderService from '../../services/orderService';
 import voucherService from '../../services/voucherService';
@@ -8,7 +8,10 @@ import './CheckoutPage.css';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cart, refreshCart } = useCart();  // Get cart from context instead of API call
+  const [vouchersByShop, setVouchersByShop] = useState(() => location.state?.vouchersByShop || {});
+  const [selectedItemsForCheckout] = useState(() => location.state?.selectedItemsForCheckout || []);
 
   // Multi-step form state
   const [currentStep, setCurrentStep] = useState(1); // 1: Review, 2: Shipping, 3: Payment, 4: Confirm
@@ -28,12 +31,46 @@ const CheckoutPage = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
 
-  // Use cart items from context (already loaded by CartProvider)
-  const cartItems = cart?.items || [];
+  // Use selected items for checkout if available, otherwise use all cart items
+  const checkoutItems = selectedItemsForCheckout.length > 0 ? selectedItemsForCheckout : (cart?.items || []);
+
+  // Group items by shop
+  const groupedByShop = React.useMemo(() => {
+    const grouped = {};
+    checkoutItems.forEach(item => {
+      const shopId = item.shopId || 0;
+      if (!grouped[shopId]) {
+        grouped[shopId] = { shopName: item.shopName || 'Unknown Shop', items: [] };
+      }
+      grouped[shopId].items.push(item);
+    });
+    return grouped;
+  }, [checkoutItems]);
+
+  // Calculate totals including vouchers by shop
+  const totals = React.useMemo(() => {
+    let totalSubtotal = 0;
+    let totalDiscount = 0;
+
+    Object.entries(groupedByShop).forEach(([shopId, shopData]) => {
+      const shopSubtotal = shopData.items.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
+      totalSubtotal += shopSubtotal;
+      
+      if (vouchersByShop[shopId]) {
+        totalDiscount += vouchersByShop[shopId].discountAmount || 0;
+      }
+    });
+
+    return {
+      subtotal: totalSubtotal,
+      discount: totalDiscount,
+      final: Math.max(0, totalSubtotal - totalDiscount - pointsUsed)
+    };
+  }, [groupedByShop, vouchersByShop, pointsUsed]);
 
   // Calculate totals using lineTotal instead of totalPrice
-  const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
-  const totalAfterDiscount = Math.max(0, subtotal - voucherDiscount - pointsUsed);
+  const subtotal = checkoutItems.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
+  const totalAfterDiscount = totals.final;
 
   // Validate voucher
   const handleValidateVoucher = async () => {
@@ -81,7 +118,7 @@ const CheckoutPage = () => {
 
       // Group cart items by shop
       const shopOrders = {};
-      cartItems.forEach(item => {
+      checkoutItems.forEach(item => {
         const shopId = item.shopId || 0;
         if (!shopOrders[shopId]) {
           shopOrders[shopId] = [];
@@ -92,11 +129,14 @@ const CheckoutPage = () => {
       // Create order for each shop
       let lastOrder = null;
       for (const shopId of Object.keys(shopOrders)) {
+        const shopVoucher = vouchersByShop[shopId];
+        const vId = shopVoucher?.id || null;
+        
         const order = await orderService.createOrder(
           parseInt(shopId),
           shippingAddress,
           paymentMethod,
-          voucherId,
+          vId,
           pointsUsed,
           recipientName,
           recipientPhone
@@ -151,7 +191,7 @@ const CheckoutPage = () => {
   // Go to order detail
   const handleGoToOrderDetail = () => {
     if (orderConfirmation?.orderId) {
-      navigate(`/order/${orderConfirmation.orderId}`);
+      navigate(`/orders/${orderConfirmation.orderId}`);
     }
   };
 
@@ -217,58 +257,70 @@ const CheckoutPage = () => {
   // Render step 1: Review cart
   const renderStep1 = () => (
     <div className="checkout-step">
-      <h2>1️⃣ Xem lại giỏ hàng</h2>
+      <h2>1 Xem lại giỏ hàng</h2>
       {cartItems.length === 0 ? (
         <div className="empty-cart">
-          <p>Giỏ hàng trống. Vui lòng thêm sản phẩm!</p>
+          <p>Gio hang trong. Vui long them san pham!</p>
           <button onClick={() => navigate('/products')} className="btn btn-primary">
-            Tiếp tục mua sắm
+            Tiep tuc mua sam
           </button>
         </div>
       ) : (
         <>
           <div className="cart-items-review">
-            {cartItems.map(item => (
-              <div key={item.id} className="cart-item-row">
-                <img src={item.imageUrl || 'https://via.placeholder.com/80'} alt={item.productName} className="item-image" />
-                <div className="item-info">
-                  <h4>{item.productName}</h4>
-                  <p>Shop: {item.shopName}</p>
-                  <p>Loại: {item.variantName || 'Không có'}</p>
-                  <p>Số lượng: {item.quantity}</p>
-                </div>
-                <div className="item-price">
-                  <p className="price">{(Number(item.lineTotal) || 0).toLocaleString('vi-VN')} ₫</p>
-                </div>
+            {Object.entries(groupedByShop).map(([shopId, shopData]) => (
+              <div key={shopId} style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #eee' }}>
+                <h3 style={{ marginBottom: 12 }}>{shopData.shopName}</h3>
+                {shopData.items.map(item => (
+                  <div key={item.id} className="cart-item-row">
+                    <img src={item.imageUrl || 'https://via.placeholder.com/80'} alt={item.productName} className="item-image" />
+                    <div className="item-info">
+                      <h4>{item.productName}</h4>
+                      <p>Loai: {item.variantName || 'Khong co'}</p>
+                      <p>So luong: {item.quantity}</p>
+                    </div>
+                    <div className="item-price">
+                      <p className="price">{(Number(item.lineTotal) || 0).toLocaleString('vi-VN')} d</p>
+                    </div>
+                  </div>
+                ))}
+                
+                {vouchersByShop[shopId] && (
+                  <div style={{ marginTop: 12, padding: 8, backgroundColor: '#f0f5ff', borderRadius: 4 }}>
+                    <p style={{ margin: 0, fontSize: 12 }}>
+                      Voucher: <strong>{vouchersByShop[shopId].code}</strong> - Giam {(vouchersByShop[shopId].discountAmount || 0).toLocaleString('vi-VN')} d
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
           <div className="price-summary">
             <div className="summary-row">
-              <span>Tổng tiền hàng:</span>
-              <span className="amount">{subtotal.toLocaleString('vi-VN')} ₫</span>
+              <span>Tong tien hang:</span>
+              <span className="amount">{totals.subtotal.toLocaleString('vi-VN')} d</span>
             </div>
-            {voucherDiscount > 0 && (
+            {totals.discount > 0 && (
               <div className="summary-row discount">
-                <span>Giảm giá voucher:</span>
-                <span className="amount">-{voucherDiscount.toLocaleString('vi-VN')} ₫</span>
+                <span>Giam gia voucher:</span>
+                <span className="amount">-{totals.discount.toLocaleString('vi-VN')} d</span>
               </div>
             )}
             {pointsUsed > 0 && (
               <div className="summary-row discount">
-                <span>Điểm thưởng đã dùng:</span>
-                <span className="amount">-{pointsUsed.toLocaleString('vi-VN')} ₫</span>
+                <span>Diem thuong da dung:</span>
+                <span className="amount">-{pointsUsed.toLocaleString('vi-VN')} d</span>
               </div>
             )}
             <div className="summary-row total">
-              <span>Tổng cộng:</span>
-              <span className="amount">{totalAfterDiscount.toLocaleString('vi-VN')} ₫</span>
+              <span>Tong cong:</span>
+              <span className="amount">{totals.final.toLocaleString('vi-VN')} d</span>
             </div>
           </div>
 
           <button onClick={() => setCurrentStep(2)} className="btn btn-primary btn-full">
-            Tiếp tục → Địa chỉ giao hàng
+            Tiep tuc Dia chi giao hang
           </button>
         </>
       )}

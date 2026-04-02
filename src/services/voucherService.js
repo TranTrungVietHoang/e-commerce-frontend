@@ -1,17 +1,24 @@
 import api from './api';
 
-const userId = 1;
-const fallbackShopId = 1;
-
 const voucherService = {
+  // Dành cho khách hàng áp dụng voucher
   getAvailableVouchers: (shopId, orderValue = 0) =>
-    api.get(`/vouchers/available?shopId=${shopId || fallbackShopId}&orderValue=${orderValue}`),
-  applyVoucher: (code, orderValue, shopId) =>
-    api.post(`/vouchers/apply?userId=${userId}`, { code, orderValue, shopId: shopId || fallbackShopId }),
-  getSellerVouchers: () => api.get(`/vouchers?shopId=${fallbackShopId}`),
-  createVoucher: (payload) => api.post(`/vouchers?shopId=${fallbackShopId}`, payload),
-  updateVoucher: (voucherId, payload) => api.put(`/vouchers/${voucherId}?shopId=${fallbackShopId}`, payload),
-  deleteVoucher: (voucherId) => api.delete(`/vouchers/${voucherId}?shopId=${fallbackShopId}`),
+    api.get(`/vouchers/available?shopId=${shopId}&orderValue=${orderValue}`),
+    
+  applyVoucher: (userId, code, orderValue, shopId) =>
+    api.post(`/vouchers/apply?userId=${userId}`, { code, orderValue, shopId }),
+
+  // Dành cho Seller quản lý voucher của shop mình
+  getSellerVouchers: (shopId) => api.get(`/vouchers?shopId=${shopId}`),
+  
+  createVoucher: (shopId, payload) => api.post(`/vouchers?shopId=${shopId}`, payload),
+  
+  updateVoucher: (voucherId, shopId, payload) => api.put(`/vouchers/${voucherId}?shopId=${shopId}`, payload),
+  
+  deleteVoucher: (voucherId, shopId) => api.delete(`/vouchers/${voucherId}?shopId=${shopId}`),
+
+  // Dành cho Admin (có thể cần endpoint riêng hoặc dùng param đặc biệt)
+  getAllVouchers: () => api.get('/vouchers/all'), 
 };
 
 export default voucherService;

@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
       fullName:  data.fullName,
       avatarUrl: data.avatarUrl || null,
       roles:     data.roles,
+      shopId:    data.shopId || null,  // Seller's shop ID
     };
     localStorage.setItem('authUser', JSON.stringify(profile));
     setUser(profile);
