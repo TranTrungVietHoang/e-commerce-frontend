@@ -147,6 +147,20 @@ const orderService = {
       console.error(`Lỗi lấy doanh thu hôm nay shop ${shopId}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Kiểm tra xem khách hàng đã mua và nhận hàng sản phẩm này chưa
+   * GET /api/v1/orders/verify-purchase/{productId}
+   */
+  verifyPurchase: async (productId) => {
+    try {
+      const response = await api.get(`/orders/verify-purchase/${productId}`);
+      return response;
+    } catch (error) {
+      console.error(`Lỗi xác thực mua hàng cho sản phẩm ${productId}:`, error);
+      throw error;
+    }
   }
 };
 

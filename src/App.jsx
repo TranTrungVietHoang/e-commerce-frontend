@@ -2,13 +2,16 @@ import React from 'react';
 import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } from 'antd';
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
-  AppstoreOutlined, HomeOutlined, LogoutOutlined,
+  AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SearchBar from './components/common/SearchBar';
+import NotificationDropdown from './components/common/NotificationDropdown';
+import ChatWidget from './components/common/ChatWidget';
 
 // ── Public pages ──────────────────────────────────────────────────────────────
 import HomePage from './pages/public/HomePage';
@@ -31,6 +34,7 @@ import CheckoutPage from './pages/customer/CheckoutPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import OrderHistoryPage from './pages/customer/OrderHistoryPage';
 import OrderDetailPage from './pages/customer/OrderDetailPage';
+import WishlistPage from './pages/customer/WishlistPage';
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 import UserManagePage from './pages/admin/UserManagePage';
@@ -54,7 +58,8 @@ const AppShell = () => {
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
       { key: '/seller/revenue', icon: <AppstoreOutlined />, label: 'Doanh thu' }
     ] : isAuthenticated ? [
-      { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' }
+      { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
+      { key: '/wishlist', icon: <HeartOutlined />, label: 'Yêu thích' },
     ] : []),
     { key: '/cart', icon: <ShoppingCartOutlined />, label: 'Giỏ hàng' },
   ];
@@ -97,19 +102,22 @@ const AppShell = () => {
 
         {/* Auth area */}
         {isAuthenticated ? (
-          <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer', color: 'white' }}>
-              <Avatar
-                src={user?.avatarUrl || null}
-                icon={!user?.avatarUrl && <UserOutlined />}
-                style={{ backgroundColor: '#1677ff' }}
-              />
-              <span style={{ fontSize: 13 }}>{user?.fullName?.split(' ').at(-1)}</span>
-            </Space>
-          </Dropdown>
+          <Space style={{ alignItems: 'center', gap: 4 }}>
+            <NotificationDropdown />
+            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
+              <Space style={{ cursor: 'pointer', color: 'white' }}>
+                <Avatar
+                  src={user?.avatarUrl || null}
+                  icon={!user?.avatarUrl && <UserOutlined />}
+                  style={{ backgroundColor: '#1677ff' }}
+                />
+                <span style={{ fontSize: 13 }}>{user?.fullName?.split(' ').at(-1)}</span>
+              </Space>
+            </Dropdown>
+          </Space>
         ) : (
           <Space>
-            <Button size="small" onClick={() => navigate('/login')}>Đăng nhập</Button>
+            <Button size="small" onClick={() => navigate('/login')}>'Đăng nhập</Button>
             <Button size="small" type="primary" onClick={() => navigate('/register')}>Đăng ký</Button>
           </Space>
         )}
@@ -133,6 +141,7 @@ const AppShell = () => {
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
             <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+            <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
 
             {/* ── Seller ── */}
             <Route path="/seller/products" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
@@ -153,6 +162,9 @@ const AppShell = () => {
       <Footer style={{ textAlign: 'center', background: '#001529', color: '#ffffff88', padding: '16px' }}>
         A+ Marketplace ©{new Date().getFullYear()} — Professional E-Commerce System
       </Footer>
+
+      {/* Chat Widget góc dưới phải */}
+      <ChatWidget />
     </Layout>
   );
 };
@@ -161,9 +173,11 @@ const AppShell = () => {
 const App = () => (
   <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}>
     <AuthProvider>
-      <CartProvider>
-        <AppShell />
-      </CartProvider>
+      <WebSocketProvider>
+        <CartProvider>
+          <AppShell />
+        </CartProvider>
+      </WebSocketProvider>
     </AuthProvider>
   </ConfigProvider>
 );

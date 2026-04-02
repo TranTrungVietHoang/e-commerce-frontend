@@ -20,25 +20,30 @@ const ProductGallery = ({ images = [] }) => {
     <div style={{ display: 'flex', gap: 12 }}>
       {/* Thumbnail list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 72 }}>
-        {images.map((img, idx) => (
-          <div
-            key={img.id || idx}
-            onClick={() => setSelectedIndex(idx)}
-            style={{
-              width: 72, height: 72, borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
-              border: idx === selectedIndex ? '2px solid #1677ff' : '2px solid transparent',
-              transition: 'border 0.2s',
-            }}
-          >
-            <img src={img.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-        ))}
+        {images.map((img, idx) => {
+          const src = (typeof img === 'string') ? img : (img.imageUrl || img.url || '');
+          return (
+            <div
+              key={img.id || idx}
+              onClick={() => setSelectedIndex(idx)}
+              style={{
+                width: 72, height: 72, borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+                border: idx === selectedIndex ? '2px solid #1677ff' : '2px solid transparent',
+                transition: 'border 0.2s',
+              }}
+            >
+              <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          );
+        })}
       </div>
 
       {/* Main image */}
       <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}>
         <Image
-          src={images[selectedIndex]?.imageUrl}
+          src={(typeof images[selectedIndex] === 'string') 
+            ? images[selectedIndex] 
+            : (images[selectedIndex]?.imageUrl || images[selectedIndex]?.url || '')}
           alt="product"
           style={{ width: '100%', height: 420, objectFit: 'contain', background: '#f9f9f9' }}
           preview={{ mask: 'Xem ảnh lớn' }}

@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Avatar, Button, Card, Form, Input, Tabs, Tag, Typography,
-  message, Spin, Space, Upload,
+  message, Spin, Space, Upload, Progress, List, Timeline, Empty
 } from 'antd';
 import {
   UserOutlined, LockOutlined, MailOutlined, PhoneOutlined,
   SaveOutlined, LogoutOutlined, CameraOutlined, LoadingOutlined,
+  TrophyOutlined, StarOutlined, HistoryOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
+import loyaltyService from '../../services/loyaltyService';
 
 const { Title, Text } = Typography;
 
@@ -94,6 +96,11 @@ const ProfilePage = () => {
                   onAvatarUploaded={handleAvatarUploaded}
                 />
               ),
+            },
+            {
+              key: 'loyalty',
+              label: <span><TrophyOutlined /> Điểm thưởng</span>,
+              children: <LoyaltyTab />,
             },
             {
               key: 'password',
@@ -321,4 +328,110 @@ const ChangePasswordTab = ({ onPasswordChanged }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab 3: Điểm Thưởng Loyalty
+// ─────────────────────────────────────────────────────────────────────────────
+const RANK_CONFIG = {
+  BRONZE:   { color: '#cd7f32', label: 'Đồng',    icon: '🥉', next: 500,   nextLabel: 'Bạc' },
+  SILVER:   { color: '#a0a0a0', label: 'Bạc',     icon: '🥈', next: 2000,  nextLabel: 'Vàng' },
+  GOLD:     { color: '#ffd700', label: 'Vàng',    icon: '🥇', next: 5000,  nextLabel: 'Bạch Kim' },
+  PLATINUM: { color: '#e5e4e2', label: 'Bạch Kim',icon: '💎', next: null,  nextLabel: null },
+};
+
+const LoyaltyTab = () => {
+  const [points, setPoints]   = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      loyaltyService.getMyPoints().catch(() => null),
+      loyaltyService.getPointHistory().catch(() => []),
+    ]).then(([pts, hist]) => {
+      setPoints(pts);
+      setHistory(Array.isArray(hist) ? hist : (hist?.content || []));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>;
+
+  const rank = RANK_CONFIG[points?.membershipRank] || RANK_CONFIG.BRONZE;
+  const currentPts = points?.totalPoints || 0;
+  const progressPercent = rank.next
+    ? Math.min(100, Math.round((currentPts / rank.next) * 100))
+    : 100;
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      {/* Rank Card */}
+      <Card
+        style={{
+          marginBottom: 20, borderRadius: 16, overflow: 'hidden',
+          background: `linear-gradient(135deg, ${rank.color}22 0%, #ffffff 100%)`,
+          border: `2px solid ${rank.color}44`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <div style={{ fontSize: 48 }}>{rank.icon}</div>
+          <div>
+            <Tag color={rank.color} style={{ fontWeight: 700, fontSize: 14, border: `1px solid ${rank.color}` }}>
+              Hạng {rank.label}
+            </Tag>
+            <div style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 36, fontWeight: 900, color: rank.color }}>{currentPts.toLocaleString()}</Text>
+              <Text type="secondary" style={{ marginLeft: 6 }}>điểm</Text>
+            </div>
+          </div>
+        </div>
+
+        {rank.next && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Hạng {rank.label}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>Hạng {rank.nextLabel} ({rank.next.toLocaleString()} điểm)</Text>
+            </div>
+            <Progress
+              percent={progressPercent}
+              strokeColor={{ from: rank.color, to: '#1677ff' }}
+              showInfo={false}
+              strokeWidth={10}
+              style={{ borderRadius: 8 }}
+            />
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4, textAlign: 'right' }}>
+              Còn {(rank.next - currentPts).toLocaleString()} điểm để lên hạng {rank.nextLabel}
+            </Text>
+          </>
+        )}
+        {!rank.next && (
+          <Tag color="gold" style={{ fontWeight: 600 }}>🎉 Bạn đã đạt hạng cao nhất!</Tag>
+        )}
+      </Card>
+
+      {/* Lịch sử điểm */}
+      <Title level={5} style={{ marginBottom: 12 }}><HistoryOutlined /> Lịch sử tích điểm</Title>
+      {history.length === 0 ? (
+        <Empty description="Chưa có lịch sử điểm. Hãy mua sắm để tích lũy điểm!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        <Timeline
+          items={history.slice(0, 10).map((h) => ({
+            color: h.points > 0 ? 'green' : 'red',
+            children: (
+              <div>
+                <Text strong style={{ color: h.points > 0 ? '#52c41a' : '#f5222d' }}>
+                  {h.points > 0 ? '+' : ''}{h.points} điểm
+                </Text>
+                <Text style={{ marginLeft: 8, fontSize: 13 }}>{h.note || h.description}</Text>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
+                  {h.createdAt ? new Date(h.createdAt).toLocaleString('vi-VN') : ''}
+                </Text>
+              </div>
+            ),
+          }))}
+        />
+      )}
+    </div>
+  );
+};
+
 export default ProfilePage;
+
