@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Button, Card, Image, Modal, Space, Table, Tag, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import productService from '../../services/productService';
 
 const { Title, Text } = Typography;
@@ -10,11 +11,12 @@ const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', cur
 
 const ProductManagePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const shopId = user?.shopId;  // Get shopId from authenticated user
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [lowStockVariants, setLowStockVariants] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
-  const shopId = 1;
 
   const fetchProducts = async (page = 0, size = 10) => {
     setLoading(true);
@@ -38,7 +40,12 @@ const ProductManagePage = () => {
     }
   };
 
-  useEffect(() => { fetchProducts(); fetchLowStock(); }, []);
+  useEffect(() => { 
+    if (shopId) {
+      fetchProducts(); 
+      fetchLowStock();
+    }
+  }, [shopId]);
 
   const handleDelete = (id) => {
     Modal.confirm({
@@ -101,28 +108,40 @@ const ProductManagePage = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Card bordered={false}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ margin: 0 }}>Quản lý Sản phẩm</Title>
-          <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => navigate('/seller/products/add')} style={{ borderRadius: 8 }}>
-            Thêm sản phẩm mới
-          </Button>
-        </div>
-
-        {lowStockVariants.length > 0 && (
+        {!shopId && (
           <Alert
-            message="Cảnh báo tồn kho"
-            description={`Bạn có ${lowStockVariants.length} loại hàng sắp hết hoặc đã hết. Hãy cập nhật kho ngay!`}
-            type="warning" showIcon icon={<WarningOutlined />}
+            message="Lỗi"
+            description="Không tìm thấy cửa hàng của bạn. Vui lòng liên hệ hỗ trợ."
+            type="error" showIcon
             style={{ marginBottom: 24, borderRadius: 8 }}
           />
         )}
 
-        <Table
-          columns={columns} dataSource={products} rowKey="id"
-          loading={loading}
-          pagination={{ ...pagination, onChange: (page, pageSize) => fetchProducts(page - 1, pageSize) }}
-          style={{ borderRadius: 8, overflow: 'hidden' }}
-        />
+        {shopId && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <Title level={3} style={{ margin: 0 }}>Quản lý Sản phẩm</Title>
+              <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => navigate('/seller/products/add')} style={{ borderRadius: 8 }}>
+                Thêm sản phẩm mới
+              </Button>
+            </div>
+
+            {lowStockVariants.length > 0 && (
+              <Alert
+                message="Cảnh báo tồn kho"
+                description={`Bạn có ${lowStockVariants.length} loại hàng sắp hết hoặc đã hết. Hãy cập nhật kho ngay!`}
+                type="warning" showIcon icon={<WarningOutlined />}
+                style={{ marginBottom: 24, borderRadius: 8 }}
+              />
+            )}
+
+            <Table
+              columns={columns} dataSource={products} rowKey="id"
+              loading={loading}
+              pagination={{ ...pagination, onChange: (page, pageSize) => fetchProducts(page - 1, pageSize) }}
+            />
+          </>
+        )}
       </Card>
     </div>
   );
