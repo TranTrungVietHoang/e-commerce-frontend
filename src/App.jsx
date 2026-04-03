@@ -8,10 +8,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { WebSocketProvider } from './context/WebSocketContext';
 import SearchBar from './components/common/SearchBar';
-import NotificationDropdown from './components/common/NotificationDropdown';
-import ChatWidget from './components/common/ChatWidget';
 import AppRouter from './routes/AppRouter';
 
 import './App.css';
@@ -113,7 +110,6 @@ const AppShell = () => {
         {/* Auth area */}
         {isAuthenticated ? (
           <Space style={{ alignItems: 'center', gap: 4 }}>
-            <NotificationDropdown />
             <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
               <Space style={{ cursor: 'pointer', color: 'white' }}>
                 <Avatar
@@ -143,8 +139,7 @@ const AppShell = () => {
         A+ Marketplace ©{new Date().getFullYear()} — Professional E-Commerce System
       </Footer>
 
-      {/* Chat Widget góc dưới phải */}
-      <ChatWidget />
+      {/* Chat Widget tạm thời gỡ bỏ do thiếu file */}
     </Layout>
   );
 };
@@ -153,11 +148,9 @@ const AppShell = () => {
 const App = () => (
   <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}>
     <AuthProvider>
-      <WebSocketProvider>
-        <CartProvider>
-          <AppShell />
-        </CartProvider>
-      </WebSocketProvider>
+      <CartProvider>
+        <AppShell />
+      </CartProvider>
     </AuthProvider>
   </ConfigProvider>
 );
