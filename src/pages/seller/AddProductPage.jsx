@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
+import shopService from '../../services/shopService';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -23,10 +24,11 @@ const AddProductPage = () => {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const shopId = 1;
+  const [shopId, setShopId] = useState(null);
 
   useEffect(() => {
     productService.getCategories().then(setCategories).catch(() => setCategories([]));
+    shopService.getMyShop().then(s => setShopId(s.id)).catch(() => message.error("Không thể xác định gian hàng"));
   }, []);
 
   const handleUpload = async (file) => {

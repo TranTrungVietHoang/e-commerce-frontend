@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import productService from '../../services/productService';
+import shopService from '../../services/shopService';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -25,15 +26,17 @@ const EditProductPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const shopId = 1;
+  const [shopId, setShopId] = useState(null);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const [cats, product] = await Promise.all([
+        const [cats, product, myShop] = await Promise.all([
           productService.getCategories(),
           productService.getProductById(id),
+          shopService.getMyShop(),
         ]);
+        setShopId(myShop.id);
         setCategories(cats);
         form.setFieldsValue({
           name: product.name,
