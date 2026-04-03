@@ -54,9 +54,15 @@ const LoginPage = () => {
 
         <Divider plain>hoặc</Divider>
 
-        {/* OAuth2 — sẽ kết nối ở milestone sau */}
+        {/* OAuth2 */}
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Button icon={<GoogleOutlined />} block disabled>Đăng nhập bằng Google (Sắp ra mắt)</Button>
+          <Button 
+            icon={<GoogleOutlined />} 
+            block 
+            onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorization/google'}
+          >
+            Đăng nhập bằng Google
+          </Button>
           <Button icon={<GithubOutlined />} block disabled>Đăng nhập bằng GitHub (Sắp ra mắt)</Button>
         </Space>
 

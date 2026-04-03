@@ -21,6 +21,7 @@ import ProductDetailPage from './pages/public/ProductDetailPage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
+import OAuth2RedirectHandler from './pages/public/OAuth2RedirectHandler';
 
 // ── Seller pages ──────────────────────────────────────────────────────────────
 import ProductManagePage from './pages/seller/ProductManagePage';
@@ -149,6 +150,7 @@ const AppShell = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
             <Route path="/unauthorized" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>🚫 Bạn không có quyền truy cập trang này.</div>} />
 
             {/* ── Customer (cần đăng nhập) ── */}
