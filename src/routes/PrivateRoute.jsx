@@ -1,25 +1,23 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * PrivateRoute: Bảo vệ route chỉ cho user đã đăng nhập
+ * PrivateRoute: Bảo vệ route chỉ cho user đã đăng nhập.
+ * Lưu lại trang định truy cập (location) để có thể quay lại sau khi login.
  */
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-  // Đang tải dữ liệu từ localStorage
   if (loading) {
-    return <div>Đang tải...</div>;
+    return <div style={{ textAlign: 'center', padding: '50px' }}>Đang tải...</div>;
   }
 
-  // Chưa đăng nhập, chuyển về login
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Đã đăng nhập, cho phép truy cập
-  return children;
+  // Nếu chưa đăng nhập, chuyển về login và lưu lại state 'from'
+  return isAuthenticated 
+    ? children 
+    : <Navigate to="/login" state={{ from: location }} replace />;
 };
 
 export default PrivateRoute;
