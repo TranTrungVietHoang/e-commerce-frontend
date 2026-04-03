@@ -28,7 +28,7 @@ import AddProductPage from './pages/seller/AddProductPage';
 import EditProductPage from './pages/seller/EditProductPage';
 import OrderManagePage from './pages/seller/OrderManagePage';
 import SellerRevenueDashboard from './pages/seller/SellerRevenueDashboard';
-import VoucherManagePage from './pages/seller/VoucherManagePage';
+import SellerVoucherManagePage from './pages/seller/VoucherManagePage';
 
 // ── Customer pages ────────────────────────────────────────────────────────────
 import CartPage from './pages/customer/CartPage';
@@ -43,7 +43,7 @@ import UserManagePage from './pages/admin/UserManagePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ShopManagePage from './pages/admin/ShopManagePage';
 import CategoryManagePage from './pages/admin/CategoryManagePage';
-import VoucherManagePage from './pages/admin/VoucherManagePage';
+import AdminVoucherManagePage from './pages/admin/VoucherManagePage';
 
 import './App.css';
 
@@ -164,7 +164,7 @@ const AppShell = () => {
             <Route path="/seller/products/add" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><AddProductPage /></ProtectedRoute>} />
             <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
             <Route path="/seller/orders" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><OrderManagePage /></ProtectedRoute>} />
-            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
+            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerVoucherManagePage /></ProtectedRoute>} />
             <Route path="/seller/revenue" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerRevenueDashboard /></ProtectedRoute>} />
 
             {/* ── Admin ── */}
@@ -172,11 +172,9 @@ const AppShell = () => {
             <Route path="/admin/revenue" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
             <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
-            <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
+            <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminVoucherManagePage /></ProtectedRoute>} />
 
-            {/* ── Seller Extra (Shared management pages) ── */}
-            <Route path="/seller/categories" element={<ProtectedRoute roles={['ROLE_SELLER']}><CategoryManagePage /></ProtectedRoute>} />
-            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER']}><VoucherManagePage /></ProtectedRoute>} />
+
 
             {/* Fallback */}
             <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />
