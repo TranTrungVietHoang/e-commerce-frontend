@@ -178,15 +178,15 @@ const orderService = {
   },
 
   /**
-   * Lấy doanh thu hôm nay
-   * GET /api/v1/revenue/shop/{shopId}/today
+   * Kiểm tra xem khách hàng đã mua và nhận hàng sản phẩm này chưa
+   * GET /api/v1/orders/verify-purchase/{productId}
    */
-  getTodayRevenue: async (shopId) => {
+  verifyPurchase: async (productId) => {
     try {
-      const response = await api.get(`/revenue/shop/${shopId}/today`);
+      const response = await api.get(`/orders/verify-purchase/${productId}`);
       return response;
     } catch (error) {
-      console.error(`Lỗi lấy doanh thu hôm nay shop ${shopId}:`, error);
+      console.error(`Lỗi xác thực mua hàng cho sản phẩm ${productId}:`, error);
       throw error;
     }
   }
