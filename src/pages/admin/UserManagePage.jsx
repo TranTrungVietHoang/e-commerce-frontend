@@ -32,8 +32,8 @@ const UserManagePage = () => {
         page: page - 1,
         size: pagination.pageSize,
       });
-      // data = PageResponse { items, totalElements, totalPages, pageNumber }
-      setUsers(data.items || []);
+      // data = PageResponse { content, totalElements, totalPages, pageNumber }
+      setUsers(data.content || []);
       setPagination(prev => ({ ...prev, current: page, total: data.totalElements }));
     } catch (err) {
       message.error(err?.message || 'Không thể tải danh sách người dùng');
