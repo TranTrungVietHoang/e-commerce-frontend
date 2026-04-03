@@ -1,6 +1,7 @@
 import React, { createContext, useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
 import cartService from '../services/cartService';
+import storageUtils from '../utils/storageUtils';
 
 export const CartContext = createContext(null);
 
@@ -21,7 +22,7 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     // Chỉ load giỏ hàng khi đã đăng nhập
-    if (localStorage.getItem('accessToken')) {
+    if (storageUtils.getItem('accessToken')) {
       refreshCart();
     }
   }, []);
