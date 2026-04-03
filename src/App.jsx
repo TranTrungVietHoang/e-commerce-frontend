@@ -3,7 +3,7 @@ import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } 
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
-  DashboardOutlined, TagsOutlined, GiftOutlined,
+  DashboardOutlined, TagsOutlined, GiftOutlined, PlusOutlined
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,6 +29,8 @@ import EditProductPage from './pages/seller/EditProductPage';
 import OrderManagePage from './pages/seller/OrderManagePage';
 import SellerRevenueDashboard from './pages/seller/SellerRevenueDashboard';
 import VoucherManagePage from './pages/seller/VoucherManagePage';
+import ShopRegistrationPage from './pages/seller/ShopRegistrationPage';
+import SellerDashboard from './pages/seller/SellerDashboard';
 
 // ── Customer pages ────────────────────────────────────────────────────────────
 import CartPage from './pages/customer/CartPage';
@@ -39,11 +41,10 @@ import OrderDetailPage from './pages/customer/OrderDetailPage';
 import WishlistPage from './pages/customer/WishlistPage';
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
-import UserManagePage from './pages/admin/UserManagePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import UserManagePage from './pages/admin/UserManagePage';
 import ShopManagePage from './pages/admin/ShopManagePage';
 import CategoryManagePage from './pages/admin/CategoryManagePage';
-import VoucherManagePage from './pages/admin/VoucherManagePage';
 
 import './App.css';
 
@@ -60,17 +61,17 @@ const AppShell = () => {
     { key: '/', icon: <HomeOutlined />, label: 'Trang chủ' },
     { key: '/search', icon: <AppstoreOutlined />, label: 'Khám phá' },
     ...(isSeller ? [
+      { key: '/seller/shop', icon: <DashboardOutlined />, label: 'Dashboard Seller' },
       { key: '/seller/products', icon: <ShopOutlined />, label: 'Quản lý kho' },
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
       { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' },
       { key: '/seller/categories', icon: <TagsOutlined />, label: 'Danh mục shop' },
       { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' }
     ] : isAdmin ? [
-      { key: '/admin/revenue', icon: <DashboardOutlined />, label: 'Thống kê' },
+      { key: '/admin', icon: <DashboardOutlined />, label: 'Thống kê' },
       { key: '/admin/users', icon: <UserOutlined />, label: 'Người dùng' },
       { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
-      { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
-      { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' }
+      { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
       { key: '/wishlist', icon: <HeartOutlined />, label: 'Yêu thích' },
@@ -83,7 +84,26 @@ const AppShell = () => {
   // Dropdown menu cho avatar khi đã đăng nhập
   const userMenuItems = [
     { key: 'profile', icon: <UserOutlined />, label: 'Hồ sơ của tôi' },
-    isAdmin ? { key: 'admin', icon: <AppstoreOutlined />, label: 'Admin Dashboard' } : null,
+    
+    // Nếu là Seller, thêm link vào Kênh người bán
+    isAuthenticated && isSeller && !isAdmin && { key: 'myshop', icon: <ShopOutlined />, label: 'Kênh Người bán' },
+    
+    // Nếu chưa là Seller và không phải Admin, cho phép đăng ký
+    isAuthenticated && !isSeller && !isAdmin && { key: 'register-shop', icon: <PlusOutlined />, label: 'Đăng ký Bán hàng' },
+    
+    // Admin dashboard link
+    isAdmin && { 
+      key: 'admin-dashboard', 
+      icon: <AppstoreOutlined />, 
+      label: 'Quản lý hệ thống',
+      children: [
+        { key: 'admin-shops', label: 'Quản lý Gian hàng' },
+        { key: 'admin-products', label: 'Quản lý Sản phẩm' },
+        { key: 'admin-categories', label: 'Quản lý Danh mục' },
+        { key: 'admin-users', label: 'Quản lý Người dùng' },
+      ]
+    },
+    
     { type: 'divider' },
     { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất', danger: true },
   ].filter(Boolean);
@@ -91,7 +111,13 @@ const AppShell = () => {
   const handleUserMenu = ({ key }) => {
     if (key === 'logout') { logout(); navigate('/login'); }
     else if (key === 'profile') navigate('/profile');
-    else if (key === 'admin') navigate('/admin/users');
+    else if (key === 'myshop') navigate('/seller/shop');
+    else if (key === 'register-shop') navigate('/seller/shop/register');
+    else if (key === 'admin-dashboard' || key === 'admin') navigate('/admin');
+    else if (key === 'admin-shops') navigate('/admin/shops');
+    else if (key === 'admin-products') navigate('/admin/products');
+    else if (key === 'admin-categories') navigate('/admin/categories');
+    else if (key === 'admin-users') navigate('/admin/users');
   };
 
   return (
@@ -133,7 +159,7 @@ const AppShell = () => {
           </Space>
         ) : (
           <Space>
-            <Button size="small" onClick={() => navigate('/login')}>'Đăng nhập</Button>
+            <Button size="small" onClick={() => navigate('/login')}>Đăng nhập</Button>
             <Button size="small" type="primary" onClick={() => navigate('/register')}>Đăng ký</Button>
           </Space>
         )}
@@ -160,23 +186,22 @@ const AppShell = () => {
             <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
 
             {/* ── Seller ── */}
+            <Route path="/seller/shop/register" element={<ProtectedRoute><ShopRegistrationPage /></ProtectedRoute>} />
+            <Route path="/seller/shop" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
             <Route path="/seller/products" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
             <Route path="/seller/products/add" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><AddProductPage /></ProtectedRoute>} />
             <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
             <Route path="/seller/orders" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><OrderManagePage /></ProtectedRoute>} />
             <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
             <Route path="/seller/revenue" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerRevenueDashboard /></ProtectedRoute>} />
+            <Route path="/seller/categories" element={<ProtectedRoute roles={['ROLE_SELLER']}><CategoryManagePage /></ProtectedRoute>} />
 
             {/* ── Admin ── */}
+            <Route path="/admin" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
-            <Route path="/admin/revenue" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
+            <Route path="/admin/products" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ProductManagePage isAdminView={true} /></ProtectedRoute>} />
             <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
-            <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><VoucherManagePage /></ProtectedRoute>} />
-
-            {/* ── Seller Extra (Shared management pages) ── */}
-            <Route path="/seller/categories" element={<ProtectedRoute roles={['ROLE_SELLER']}><CategoryManagePage /></ProtectedRoute>} />
-            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER']}><VoucherManagePage /></ProtectedRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />

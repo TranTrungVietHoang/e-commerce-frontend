@@ -32,6 +32,8 @@ const UserManagePage = () => {
         page: page - 1,
         size: pagination.pageSize,
       });
+      
+      // data = PageResponse { content, totalElements, totalPages, pageNumber }
       setUsers(data.content || data.items || []);
       setPagination(prev => ({ ...prev, current: page, total: data.totalElements || 0 }));
     } catch (err) {
@@ -46,7 +48,7 @@ const UserManagePage = () => {
   // Load dữ liệu lần đầu khi component mount
   useEffect(() => { 
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   // Debounce tìm kiếm 300ms
   const handleSearch = (value) => {
@@ -196,7 +198,7 @@ const UserManagePage = () => {
             total: pagination.total,
             showSizeChanger: false,
             showTotal: (total) => `${total} người dùng`,
-            onChange: (page) => fetchUsers(page),
+            onChange: (page) => fetchUsers(page, keyword, statusFilter),
           }}
           style={{ borderRadius: 8, overflow: 'hidden' }}
         />
