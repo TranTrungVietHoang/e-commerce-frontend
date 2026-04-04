@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Card, Row, Col, Statistic, Select, Space, Table, Tag, Typography, Empty, Spin } from 'antd';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { Card, Row, Col, Statistic, Select, Space, Table, Tag, Typography, Empty, Spin, Button } from 'antd';
 import {
   RiseOutlined,
   ShoppingCartOutlined,
   CheckCircleOutlined,
   LineChartOutlined,
   UserOutlined,
-  ShopOutlined
+  ShopOutlined,
+  AppstoreOutlined,
+  ArrowRightOutlined
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import orderService from '../../services/orderService';
 import './AdminDashboard.css';
 
@@ -16,10 +19,35 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState('DAY'); // DAY, MONTH, YEAR
   const [data, setData] = useState(null);
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const adminModules = [
+    {
+      title: 'Quản lý Gian hàng',
+      description: 'Phê duyệt hoặc từ chối các yêu cầu mở shop mới.',
+      icon: <ShopOutlined style={{ fontSize: 24, color: '#1677ff' }} />,
+      path: '/admin/shops',
+      color: '#e6f7ff'
+    },
+    {
+      title: 'Quản lý Danh mục',
+      description: 'Thiết kế cây danh mục sản phẩm của hệ thống.',
+      icon: <AppstoreOutlined style={{ fontSize: 24, color: '#722ed1' }} />,
+      path: '/admin/categories',
+      color: '#f9f0ff'
+    },
+    {
+      title: 'Quản lý Người dùng',
+      description: 'Xem danh sách, khóa hoặc mở khóa tài khoản.',
+      icon: <UserOutlined style={{ fontSize: 24, color: '#fa8c16' }} />,
+      path: '/admin/users',
+      color: '#fff7e6'
+    }
+  ];
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -48,13 +76,14 @@ const AdminDashboard = () => {
       title: 'Sản phẩm',
       dataIndex: 'productName',
       key: 'productName',
-      render: (text) => <Text strong>{text}</Text>,
+      render: (text) => <Text strong ellipsis={{ tooltip: text }}>{text}</Text>,
     },
     {
       title: 'Đã bán',
       dataIndex: 'soldCount',
       key: 'soldCount',
-      render: (count) => <Tag color="blue">{count} đã bán</Tag>,
+      width: 100,
+      render: (count) => <Tag color="blue">{count}</Tag>,
     },
     {
       title: 'Doanh thu',
@@ -67,20 +96,61 @@ const AdminDashboard = () => {
   if (loading && !data) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <Spin size="large" tip="Đang tải dữ liệu thống kê toàn sàn..." />
+        <Spin size="large" tip="Đang tải dữ liệu kinh doanh..." />
       </div>
     );
   }
 
   return (
-    <div className="admin-dashboard-container">
-      <div className="admin-dashboard-header">
-        <div>
-          <Title level={2}>Bảng điều khiển hệ thống</Title>
-          <Text type="secondary">Tổng quan hoạt động kinh doanh trên toàn nền tảng</Text>
-        </div>
+    <div className="admin-dashboard-container" style={{ padding: 24 }}>
+      {/* Header section with modules */}
+      <div style={{ marginBottom: 32 }}>
+        <Title level={2}>Admin Dashboard</Title>
+        <Text type="secondary">Tổng quan hoạt động kinh doanh và quản lý hệ thống chuyên sâu.</Text>
+      </div>
+
+      <Row gutter={[24, 24]} style={{ marginBottom: 32 }}>
+        {adminModules.map((module, index) => (
+          <Col xs={24} sm={8} key={index}>
+            <Card 
+              hoverable 
+              style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+              bodyStyle={{ padding: 20 }}
+              onClick={() => navigate(module.path)}
+            >
+              <Space align="start" size={16}>
+                <div style={{ 
+                  width: 48, 
+                  height: 48, 
+                  backgroundColor: module.color, 
+                  borderRadius: 12, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center'
+                }}>
+                  {module.icon}
+                </div>
+                <div>
+                  <Title level={5} style={{ margin: 0 }}>{module.title}</Title>
+                  <Text type="secondary" style={{ fontSize: 13 }}>{module.description}</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Button type="link" size="small" icon={<ArrowRightOutlined />} style={{ padding: 0 }}>
+                      Quản lý ngay
+                    </Button>
+                  </div>
+                </div>
+              </Space>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Divider style={{ margin: '32px 0' }} />
+
+      <div className="admin-dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+        <Title level={3} style={{ margin: 0 }}>Thống Kê Kinh Doanh</Title>
         <Space>
-          <Text strong>Giai đoạn:</Text>
+          <Text strong>Xem theo:</Text>
           <Select value={period} onChange={setPeriod} style={{ width: 150 }}>
             <Option value="DAY">Hôm nay</Option>
             <Option value="MONTH">Tháng này</Option>
@@ -135,7 +205,7 @@ const AdminDashboard = () => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col xs={24} lg={16}>
-          <Card title="Phân tích tăng trưởng doanh thu" bordered={false} bodyStyle={{ padding: '24px 0' }}>
+          <Card title="Phân tích tăng trưởng doanh thu" bordered={false} style={{ borderRadius: 12 }}>
             <div style={{ height: 400 }}>
               {data?.chartData && data.chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -143,7 +213,7 @@ const AdminDashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" />
                     <YAxis tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
-                    <Tooltip
+                    <RechartsTooltip
                       formatter={(val) => [formatCurrency(val), 'Doanh thu']}
                       labelFormatter={(label) => `Giai đoạn: ${label}`}
                     />
@@ -157,7 +227,7 @@ const AdminDashboard = () => {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title="Top sản phẩm bán chạy toàn sàn" bordered={false}>
+          <Card title="Top sản phẩm bán chạy toàn sàn" bordered={false} style={{ borderRadius: 12 }}>
             <Table
               dataSource={topProducts}
               columns={productColumns}
@@ -169,6 +239,16 @@ const AdminDashboard = () => {
           </Card>
         </Col>
       </Row>
+
+      <Card style={{ marginTop: 32, borderRadius: 16, background: '#f0f5ff', border: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <CheckCircleOutlined style={{ fontSize: 24, color: '#1677ff' }} />
+          <div>
+            <Title level={5} style={{ margin: 0 }}>Hệ thống đang hoạt động ổn định</Title>
+            <Text type="secondary">Tất cả các dịch vụ Backend và Database đang ở trạng thái tốt nhất.</Text>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };

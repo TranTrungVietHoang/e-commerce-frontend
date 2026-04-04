@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import productService from '../../services/productService';
+import shopService from '../../services/shopService';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -18,7 +19,6 @@ const { Dragger } = Upload;
 const AddProductPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const shopId = user?.shopId;  // Get shopId from authenticated user
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
@@ -26,10 +26,16 @@ const AddProductPage = () => {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [shopId, setShopId] = useState(user?.shopId || null);
 
   useEffect(() => {
     productService.getCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
+    
+    // Ưu tiên shopId từ AuthContext, nếu không có mới fetch từ API
+    if (!user?.shopId) {
+      shopService.getMyShop().then(s => setShopId(s.id)).catch(() => message.error("Không thể xác định gian hàng"));
+    }
+  }, [user?.shopId]);
 
   const handleUpload = async (file) => {
     setUploading(true);
@@ -69,6 +75,8 @@ const AddProductPage = () => {
 
   const onFinish = async (values) => {
     if (!imageUrls.length) { message.warning('Cần ít nhất 1 hình ảnh'); setCurrentStep(1); return; }
+    if (!shopId) { message.error('Không tìm thấy ID gian hàng. Vui lòng tải lại trang.'); return; }
+    
     setLoading(true);
     try {
       const payload = {
@@ -110,7 +118,7 @@ const AddProductPage = () => {
           <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true }]}><Input size="large" /></Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
             <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true }]}>
-              <Select size="large" options={categories.map((item) => ({ value: item.id, label: item.name }))} />
+              <Select size="large" options={categories.map((item) => ({ value: item.id, label: item.name }))} placeholder="Chọn danh mục" />
             </Form.Item>
             <Form.Item name="basePrice" label="Giá gốc" rules={[{ required: true }]}>
               <InputNumber min={1} style={{ width: '100%' }} size="large" />
@@ -180,9 +188,9 @@ const AddProductPage = () => {
   return (
     <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
       <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ status: 'ACTIVE', flashSaleEnabled: false, basePrice: 1000 }}>
-        <Card bordered={false}>
+        <Card bordered={false} style={{ borderRadius: 12 }}>
           <Title level={3} style={{ marginBottom: '32px' }}>Thêm sản phẩm mới</Title>
-          <Steps current={currentStep} items={steps} style={{ marginBottom: '40px' }} />
+          <Steps current={currentStep} items={steps.map(s => ({ title: s.title, icon: s.icon }))} style={{ marginBottom: '40px' }} />
           <Divider />
           <div style={{ minHeight: '300px', marginBottom: '40px' }}>
             {steps.map((step, idx) => (

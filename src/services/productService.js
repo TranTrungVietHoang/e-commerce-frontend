@@ -15,6 +15,18 @@ const productService = {
   getPublicProducts: () => 
     api.get('/products/public'),
 
+  // Lấy danh sách sản phẩm cho Admin
+  getAdminProducts: (page = 0, size = 10) =>
+    api.get(`/products/admin?page=${page}&size=${size}`),
+
+  // Cập nhật trạng thái sản phẩm (Admin duyêt)
+  updateProductStatus: (id, status, reason = '') =>
+    api.put(`/products/${id}/status?status=${status}&reason=${encodeURIComponent(reason)}`),
+
+  // Seller tự ẩn/hiện sản phẩm
+  updateProductStatusForSeller: (id, shopId, status) =>
+    api.put(`/products/seller/${id}/status?shopId=${shopId}&status=${status}`),
+
   // Lấy chi tiết sản phẩm theo ID
   getProductById: (id) => 
     api.get(`/products/${id}`),

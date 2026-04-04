@@ -4,16 +4,15 @@ import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
   DashboardOutlined, TagsOutlined, GiftOutlined, ThunderboltOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined, PlusOutlined
 } from '@ant-design/icons';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { WebSocketProvider } from './context/WebSocketContext';
-import ProtectedRoute from './components/common/ProtectedRoute';
 import SearchBar from './components/common/SearchBar';
 import NotificationDropdown from './components/common/NotificationDropdown';
 import ChatWidget from './components/common/ChatWidget';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
 // ── Public pages ──────────────────────────────────────────────────────────────
 import HomePage from './pages/public/HomePage';
@@ -50,7 +49,6 @@ import AdminVoucherManagePage from './pages/admin/VoucherManagePage';
 import FlashSaleManagePage from './pages/admin/FlashSaleManagePage';
 import ProductModerationPage from './pages/admin/ProductModerationPage';
 
-
 import './App.css';
 
 const { Header, Content, Footer } = Layout;
@@ -66,6 +64,7 @@ const AppShell = () => {
     { key: '/', icon: <HomeOutlined />, label: 'Trang chủ' },
     { key: '/search', icon: <AppstoreOutlined />, label: 'Khám phá' },
     ...(isSeller ? [
+      { key: '/seller/shop', icon: <DashboardOutlined />, label: 'Dashboard Seller' },
       { key: '/seller/products', icon: <ShopOutlined />, label: 'Quản lý kho' },
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
       { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' },
@@ -73,7 +72,7 @@ const AppShell = () => {
       { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' },
       { key: '/seller/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAdmin ? [
-      { key: '/admin/revenue', icon: <DashboardOutlined />, label: 'Thống kê' },
+      { key: '/admin', icon: <DashboardOutlined />, label: 'Thống kê' },
       { key: '/admin/users', icon: <UserOutlined />, label: 'Người dùng' },
       { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
       { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
@@ -92,7 +91,26 @@ const AppShell = () => {
   // Dropdown menu cho avatar khi đã đăng nhập
   const userMenuItems = [
     { key: 'profile', icon: <UserOutlined />, label: 'Hồ sơ của tôi' },
-    isAdmin ? { key: 'admin', icon: <AppstoreOutlined />, label: 'Admin Dashboard' } : null,
+    
+    // Nếu là Seller, thêm link vào Kênh người bán
+    isAuthenticated && isSeller && !isAdmin && { key: 'myshop', icon: <ShopOutlined />, label: 'Kênh Người bán' },
+    
+    // Nếu chưa là Seller và không phải Admin, cho phép đăng ký
+    isAuthenticated && !isSeller && !isAdmin && { key: 'register-shop', icon: <PlusOutlined />, label: 'Đăng ký Bán hàng' },
+    
+    // Admin dashboard link
+    isAdmin && { 
+      key: 'admin-dashboard', 
+      icon: <AppstoreOutlined />, 
+      label: 'Quản lý hệ thống',
+      children: [
+        { key: 'admin-shops', label: 'Quản lý Gian hàng' },
+        { key: 'admin-products', label: 'Quản lý Sản phẩm' },
+        { key: 'admin-categories', label: 'Quản lý Danh mục' },
+        { key: 'admin-users', label: 'Quản lý Người dùng' },
+      ]
+    },
+    
     { type: 'divider' },
     { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất', danger: true },
   ].filter(Boolean);
@@ -100,7 +118,13 @@ const AppShell = () => {
   const handleUserMenu = ({ key }) => {
     if (key === 'logout') { logout(); navigate('/login'); }
     else if (key === 'profile') navigate('/profile');
-    else if (key === 'admin') navigate('/admin/users');
+    else if (key === 'myshop') navigate('/seller/shop');
+    else if (key === 'register-shop') navigate('/seller/shop/register');
+    else if (key === 'admin-dashboard' || key === 'admin') navigate('/admin');
+    else if (key === 'admin-shops') navigate('/admin/shops');
+    else if (key === 'admin-products') navigate('/admin/products');
+    else if (key === 'admin-categories') navigate('/admin/categories');
+    else if (key === 'admin-users') navigate('/admin/users');
   };
 
   return (
@@ -128,7 +152,6 @@ const AppShell = () => {
         {/* Auth area */}
         {isAuthenticated ? (
           <Space style={{ alignItems: 'center', gap: 4 }}>
-            <NotificationDropdown />
             <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
               <Space style={{ cursor: 'pointer', color: 'white' }}>
                 <Avatar
@@ -142,7 +165,7 @@ const AppShell = () => {
           </Space>
         ) : (
           <Space>
-            <Button size="small" onClick={() => navigate('/login')}>'Đăng nhập</Button>
+            <Button size="small" onClick={() => navigate('/login')}>Đăng nhập</Button>
             <Button size="small" type="primary" onClick={() => navigate('/register')}>Đăng ký</Button>
           </Space>
         )}
@@ -187,9 +210,6 @@ const AppShell = () => {
             <Route path="/admin/moderation" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ProductModerationPage /></ProtectedRoute>} />
             <Route path="/admin/flash-sales" element={<ProtectedRoute roles={['ROLE_ADMIN']}><FlashSaleManagePage /></ProtectedRoute>} />
 
-
-
-
             {/* Fallback */}
             <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />
           </Routes>
@@ -200,8 +220,7 @@ const AppShell = () => {
         A+ Marketplace ©{new Date().getFullYear()} — Professional E-Commerce System
       </Footer>
 
-      {/* Chat Widget góc dưới phải */}
-      <ChatWidget />
+      {/* Chat Widget tạm thời gỡ bỏ do thiếu file */}
     </Layout>
   );
 };
@@ -210,11 +229,9 @@ const AppShell = () => {
 const App = () => (
   <ConfigProvider theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}>
     <AuthProvider>
-      <WebSocketProvider>
-        <CartProvider>
-          <AppShell />
-        </CartProvider>
-      </WebSocketProvider>
+      <CartProvider>
+        <AppShell />
+      </CartProvider>
     </AuthProvider>
   </ConfigProvider>
 );
