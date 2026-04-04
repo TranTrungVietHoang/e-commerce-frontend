@@ -3,7 +3,7 @@ import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } 
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
-  DashboardOutlined, TagsOutlined, GiftOutlined,
+  DashboardOutlined, TagsOutlined, GiftOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -30,6 +30,7 @@ import EditProductPage from './pages/seller/EditProductPage';
 import OrderManagePage from './pages/seller/OrderManagePage';
 import SellerRevenueDashboard from './pages/seller/SellerRevenueDashboard';
 import SellerVoucherManagePage from './pages/seller/VoucherManagePage';
+import FlashSaleRegisterPage from './pages/seller/FlashSaleRegisterPage';
 
 // ── Customer pages ────────────────────────────────────────────────────────────
 import CartPage from './pages/customer/CartPage';
@@ -45,6 +46,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ShopManagePage from './pages/admin/ShopManagePage';
 import CategoryManagePage from './pages/admin/CategoryManagePage';
 import AdminVoucherManagePage from './pages/admin/VoucherManagePage';
+import FlashSaleManagePage from './pages/admin/FlashSaleManagePage';
 
 import './App.css';
 
@@ -65,13 +67,15 @@ const AppShell = () => {
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
       { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' },
       { key: '/seller/categories', icon: <TagsOutlined />, label: 'Danh mục shop' },
-      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' }
+      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' },
+      { key: '/seller/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAdmin ? [
       { key: '/admin/revenue', icon: <DashboardOutlined />, label: 'Thống kê' },
       { key: '/admin/users', icon: <UserOutlined />, label: 'Người dùng' },
       { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
       { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
-      { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' }
+      { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' },
+      { key: '/admin/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
       { key: '/wishlist', icon: <HeartOutlined />, label: 'Yêu thích' },
@@ -168,6 +172,7 @@ const AppShell = () => {
             <Route path="/seller/orders" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><OrderManagePage /></ProtectedRoute>} />
             <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerVoucherManagePage /></ProtectedRoute>} />
             <Route path="/seller/revenue" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerRevenueDashboard /></ProtectedRoute>} />
+            <Route path="/seller/flash-sales" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><FlashSaleRegisterPage /></ProtectedRoute>} />
 
             {/* ── Admin ── */}
             <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
@@ -175,6 +180,7 @@ const AppShell = () => {
             <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
             <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
             <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminVoucherManagePage /></ProtectedRoute>} />
+            <Route path="/admin/flash-sales" element={<ProtectedRoute roles={['ROLE_ADMIN']}><FlashSaleManagePage /></ProtectedRoute>} />
 
 
 
