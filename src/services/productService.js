@@ -51,6 +51,14 @@ const productService = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  // --- ADMIN MODERATION ---
+  getPendingProducts: (page = 0, size = 10) => 
+    api.get(`/admin/moderation/products?page=${page}&size=${size}`),
+
+  moderateProduct: (id, status) => 
+    api.patch(`/admin/moderation/products/${id}`, { status }),
 };
+
 
 export default productService;

@@ -4,6 +4,7 @@ import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
   DashboardOutlined, TagsOutlined, GiftOutlined, ThunderboltOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -47,6 +48,8 @@ import ShopManagePage from './pages/admin/ShopManagePage';
 import CategoryManagePage from './pages/admin/CategoryManagePage';
 import AdminVoucherManagePage from './pages/admin/VoucherManagePage';
 import FlashSaleManagePage from './pages/admin/FlashSaleManagePage';
+import ProductModerationPage from './pages/admin/ProductModerationPage';
+
 
 import './App.css';
 
@@ -75,6 +78,7 @@ const AppShell = () => {
       { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
       { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
       { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' },
+      { key: '/admin/moderation', icon: <CheckCircleOutlined />, label: 'Duyệt sản phẩm' },
       { key: '/admin/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
@@ -180,7 +184,9 @@ const AppShell = () => {
             <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
             <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
             <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminVoucherManagePage /></ProtectedRoute>} />
+            <Route path="/admin/moderation" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ProductModerationPage /></ProtectedRoute>} />
             <Route path="/admin/flash-sales" element={<ProtectedRoute roles={['ROLE_ADMIN']}><FlashSaleManagePage /></ProtectedRoute>} />
+
 
 
 

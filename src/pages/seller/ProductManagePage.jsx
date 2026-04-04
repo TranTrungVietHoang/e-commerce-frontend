@@ -87,11 +87,13 @@ const ProductManagePage = () => {
       render: (stock) => <Tag color={stock === 0 ? 'red' : stock < 10 ? 'orange' : 'green'}>{stock}</Tag>,
     },
     {
-      title: 'Trạng thái', dataIndex: 'status', width: 120,
-      render: (status) => {
-        let color = status === 'ACTIVE' ? 'green' : 'orange';
-        if (status === 'DELETED') color = 'volcano';
-        return <Tag color={color}>{status}</Tag>;
+      title: 'Kiểm duyệt', dataIndex: 'moderationStatus', width: 120,
+      render: (modStatus) => {
+        let color = 'gold';
+        let text = 'Chờ duyệt';
+        if (modStatus === 'APPROVED') { color = 'cyan'; text = 'Đã duyệt'; }
+        else if (modStatus === 'REJECTED') { color = 'magenta'; text = 'Từ chối'; }
+        return <Tag color={color}>{text}</Tag>;
       },
     },
     {
