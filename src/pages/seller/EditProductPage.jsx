@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Steps, Form, Input, InputNumber, Button, Card, Space,
-  Table, message, Typography, Select, Divider, List, Avatar, Tag, Upload, Checkbox, Spin
+  Table, message, Typography, Select, Divider, List, Avatar, Tag, Upload, Spin
 } from 'antd';
 import {
   InfoCircleOutlined, PictureOutlined, AppstoreAddOutlined,
@@ -10,6 +10,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import productService from '../../services/productService';
+import shopService from '../../services/shopService';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -19,7 +20,6 @@ const EditProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const shopId = user?.shopId;  // Get shopId from authenticated user
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
@@ -28,14 +28,28 @@ const EditProductPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [shopId, setShopId] = useState(user?.shopId || null);
 
   useEffect(() => {
     const init = async () => {
       try {
         const [cats, product] = await Promise.all([
           productService.getCategories(),
-          productService.getProductById(id),
+          productService.getProductById(id)
         ]);
+
+        // Nếu chưa có shopId từ context, thử lấy từ API shop cá nhân
+        let currentShopId = user?.shopId;
+        if (!currentShopId) {
+          try {
+            const myShop = await shopService.getMyShop();
+            currentShopId = myShop.id;
+            setShopId(currentShopId);
+          } catch (e) {
+            console.error("Lỗi xác định shopId:", e);
+          }
+        }
+
         setCategories(cats);
         form.setFieldsValue({
           name: product.name,
@@ -68,7 +82,7 @@ const EditProductPage = () => {
       }
     };
     init();
-  }, [id]);
+  }, [id, navigate, form, user?.shopId]);
 
   const handleUpload = async (file) => {
     setUploading(true);
@@ -104,6 +118,8 @@ const EditProductPage = () => {
 
   const handleFinish = async (values) => {
     if (!imageUrls.length) { message.error('Cần ít nhất 1 hình ảnh'); setCurrentStep(1); return; }
+    if (!shopId) { message.error('Không tìm thấy ID gian hàng. Vui lòng tải lại trang.'); return; }
+    
     setLoading(true);
     try {
       const payload = {
@@ -143,7 +159,7 @@ const EditProductPage = () => {
           <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true, min: 10, max: 200 }]}><Input size="large" /></Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true }]}>
-              <Select size="large">{categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select>
+              <Select size="large" placeholder="Chọn danh mục">{categories.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select>
             </Form.Item>
             <Form.Item name="basePrice" label="Giá cơ bản (VNĐ)" rules={[{ required: true }, { type: 'number', min: 1 }]}>
               <InputNumber style={{ width: '100%' }} min={1} size="large" />
@@ -208,9 +224,9 @@ const EditProductPage = () => {
   return (
     <div style={{ padding: '24px', maxWidth: 1000, margin: '0 auto' }}>
       <Form form={form} layout="vertical" onFinish={handleFinish}>
-        <Card bordered={false}>
+        <Card bordered={false} style={{ borderRadius: 12 }}>
           <Title level={3} style={{ marginBottom: '32px' }}>Chỉnh sửa sản phẩm</Title>
-          <Steps current={currentStep} items={steps} style={{ marginBottom: '40px' }} />
+          <Steps current={currentStep} items={steps.map(s => ({ title: s.title, icon: s.icon }))} style={{ marginBottom: '40px' }} />
           <Divider />
           <div style={{ minHeight: '300px', marginBottom: '40px' }}>
             <div style={{ display: currentStep === 0 ? 'block' : 'none' }}>{steps[0].content}</div>

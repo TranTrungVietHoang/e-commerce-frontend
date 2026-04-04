@@ -1,4 +1,5 @@
 import axios from 'axios';
+import storageUtils from '../utils/storageUtils';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1',
@@ -8,9 +9,13 @@ const api = axios.create({
 // ─── Request interceptor: tự động gắn Bearer token ───────────────────────────
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
+    const token = storageUtils.getItem('accessToken');
+    // Chỉ gửi token nếu nó tồn tại, không phải là chuỗi "null"/"undefined" và có định dạng JWT (chứa dấu chấm)
+    if (token && token !== 'undefined' && token !== 'null' && token.includes('.')) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Sending Token:', token.substring(0, 10) + '...');
+    } else {
+      console.warn('No valid token found in localStorage');
     }
     return config;
   },
@@ -43,48 +48,22 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Nếu bị 401 và chưa thử refresh
+    // Nếu bị 401 và chưa thử refresh (hoặc không thể refresh)
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (!refreshToken) {
-        // Không có refresh token → bắn event để App xử lý, không hard reload
-        localStorage.clear();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        // Đang refresh → đưa vào hàng đợi
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const res = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          { refreshToken }
-        );
-        const newAccessToken = res.data?.result?.accessToken || res.data?.accessToken;
-        localStorage.setItem('accessToken', newAccessToken);
-        processQueue(null, newAccessToken);
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        localStorage.clear();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+      
+      // Xóa thông tin cũ ngay lập tứ để không bị loop
+      storageUtils.removeItem('accessToken');
+      storageUtils.removeItem('refreshToken');
+      storageUtils.removeItem('authUser');
+      
+      // Thông báo cho AuthContext (để cập nhật giao diện)
+      window.dispatchEvent(new Event('auth:logout'));
+      
+      return Promise.reject({ 
+        code: 401, 
+        message: 'Phiên đăng nhập hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.' 
+      });
     }
 
     const errorData = error.response?.data || { message: 'Lỗi kết nối máy chủ' };

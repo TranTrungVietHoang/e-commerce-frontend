@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import authService from '../services/authService';
+import storageUtils from '../utils/storageUtils';
 
 const AuthContext = createContext(null);
 
@@ -9,7 +10,7 @@ export const AuthProvider = ({ children }) => {
 
   // Khởi tạo lại state từ localStorage khi F5 trang
   useEffect(() => {
-    const stored = localStorage.getItem('authUser');
+    const stored = storageUtils.getItem('authUser');
     if (stored) {
       try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
     }
@@ -25,8 +26,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (credentials) => {
     const data = await authService.login(credentials);
-    localStorage.setItem('accessToken',  data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    storageUtils.setItem('accessToken',  data.accessToken);
+    storageUtils.setItem('refreshToken', data.refreshToken);
     const profile = {
       userId:    data.userId,
       email:     data.email,
@@ -35,16 +36,16 @@ export const AuthProvider = ({ children }) => {
       roles:     data.roles,
       shopId:    data.shopId || null,  // Seller's shop ID
     };
-    localStorage.setItem('authUser', JSON.stringify(profile));
+    storageUtils.setItem('authUser', JSON.stringify(profile));
     setUser(profile);
     return data;
   }, []);
 
   const logout = useCallback(async () => {
     try { await authService.logout(); } catch { /* ignore */ }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('authUser');
+    storageUtils.removeItem('accessToken');
+    storageUtils.removeItem('refreshToken');
+    storageUtils.removeItem('authUser');
     setUser(null);
   }, []);
 
@@ -53,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, avatarUrl };
-      localStorage.setItem('authUser', JSON.stringify(updated));
+      storageUtils.setItem('authUser', JSON.stringify(updated));
       return updated;
     });
   }, []);
