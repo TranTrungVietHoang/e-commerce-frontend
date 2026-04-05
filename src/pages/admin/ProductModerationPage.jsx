@@ -15,15 +15,23 @@ const ProductModerationPage = () => {
   const fetchPendingProducts = async (page = 0, size = 10) => {
     setLoading(true);
     try {
-      const data = await productService.getPendingProducts(page, size);
-      setProducts(data.content);
-      setPagination({
-        current: page + 1,
-        pageSize: size,
-        total: data.totalElements
-      });
+      const response = await productService.getPendingProducts(page, size);
+      // Hỗ trợ cả trường hợp api.js chưa unwrap hết 'result'
+      const data = response?.result || response;
+      
+      if (data && data.content) {
+        setProducts(data.content);
+        setPagination({
+          current: (data.number || page) + 1,
+          pageSize: data.size || size,
+          total: data.totalElements || 0
+        });
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
-      message.error('Lỗi khi tải danh sách chờ duyệt: ' + error.message);
+      const msg = error.message || (typeof error === 'string' ? error : 'Lỗi không xác định');
+      message.error('Lỗi khi tải danh sách chờ duyệt: ' + msg);
     } finally {
       setLoading(false);
     }
