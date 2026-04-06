@@ -3,13 +3,51 @@ import { ConfigProvider, Layout, Menu, theme, Button, Avatar, Dropdown, Space } 
 import {
   ShoppingCartOutlined, UserOutlined, ShopOutlined,
   AppstoreOutlined, HomeOutlined, LogoutOutlined, HeartOutlined,
-  DashboardOutlined, TagsOutlined, GiftOutlined, PlusOutlined
+  DashboardOutlined, TagsOutlined, GiftOutlined, ThunderboltOutlined,
+  CheckCircleOutlined, PlusOutlined
 } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import SearchBar from './components/common/SearchBar';
-import AppRouter from './routes/AppRouter';
+import NotificationDropdown from './components/common/NotificationDropdown';
+import ChatWidget from './components/common/ChatWidget';
+import ProtectedRoute from './components/common/ProtectedRoute';
+
+// ── Public pages ──────────────────────────────────────────────────────────────
+import HomePage from './pages/public/HomePage';
+import SearchResultPage from './pages/public/SearchResultPage';
+import ProductDetailPage from './pages/public/ProductDetailPage';
+import LoginPage from './pages/public/LoginPage';
+import RegisterPage from './pages/public/RegisterPage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
+import OAuth2RedirectHandler from './pages/public/OAuth2RedirectHandler';
+
+// ── Seller pages ──────────────────────────────────────────────────────────────
+import ProductManagePage from './pages/seller/ProductManagePage';
+import AddProductPage from './pages/seller/AddProductPage';
+import EditProductPage from './pages/seller/EditProductPage';
+import OrderManagePage from './pages/seller/OrderManagePage';
+import SellerRevenueDashboard from './pages/seller/SellerRevenueDashboard';
+import SellerVoucherManagePage from './pages/seller/VoucherManagePage';
+import FlashSaleRegisterPage from './pages/seller/FlashSaleRegisterPage';
+
+// ── Customer pages ────────────────────────────────────────────────────────────
+import CartPage from './pages/customer/CartPage';
+import CheckoutPage from './pages/customer/CheckoutPage';
+import ProfilePage from './pages/customer/ProfilePage';
+import OrderHistoryPage from './pages/customer/OrderHistoryPage';
+import OrderDetailPage from './pages/customer/OrderDetailPage';
+import WishlistPage from './pages/customer/WishlistPage';
+
+// ── Admin pages ───────────────────────────────────────────────────────────────
+import UserManagePage from './pages/admin/UserManagePage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ShopManagePage from './pages/admin/ShopManagePage';
+import CategoryManagePage from './pages/admin/CategoryManagePage';
+import AdminVoucherManagePage from './pages/admin/VoucherManagePage';
+import FlashSaleManagePage from './pages/admin/FlashSaleManagePage';
+import ProductModerationPage from './pages/admin/ProductModerationPage';
 
 import './App.css';
 
@@ -31,12 +69,16 @@ const AppShell = () => {
       { key: '/seller/orders', icon: <ShoppingCartOutlined />, label: 'Quản lý đơn' },
       { key: '/seller/revenue', icon: <DashboardOutlined />, label: 'Doanh thu' },
       { key: '/seller/categories', icon: <TagsOutlined />, label: 'Danh mục shop' },
-      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' }
+      { key: '/seller/vouchers', icon: <GiftOutlined />, label: 'Voucher shop' },
+      { key: '/seller/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAdmin ? [
       { key: '/admin', icon: <DashboardOutlined />, label: 'Thống kê' },
       { key: '/admin/users', icon: <UserOutlined />, label: 'Người dùng' },
       { key: '/admin/shops', icon: <ShopOutlined />, label: 'Cửa hàng' },
-      { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' }
+      { key: '/admin/categories', icon: <TagsOutlined />, label: 'Danh mục' },
+      { key: '/admin/vouchers', icon: <GiftOutlined />, label: 'Voucher' },
+      { key: '/admin/moderation', icon: <CheckCircleOutlined />, label: 'Duyệt sản phẩm' },
+      { key: '/admin/flash-sales', icon: <ThunderboltOutlined />, label: 'Flash Sale (Mới)' }
     ] : isAuthenticated ? [
       { key: '/orders', icon: <ShoppingCartOutlined />, label: 'Lịch sử mua hàng' },
       { key: '/wishlist', icon: <HeartOutlined />, label: 'Yêu thích' },
@@ -131,7 +173,46 @@ const AppShell = () => {
 
       <Content style={{ background: '#f5f6fa', minHeight: 'calc(100vh - 134px)' }}>
         <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, minHeight: '80vh' }}>
-          <AppRouter />
+          <Routes>
+            {/* ── Public ── */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/search" element={<SearchResultPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
+            <Route path="/unauthorized" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>🚫 Bạn không có quyền truy cập trang này.</div>} />
+
+            {/* ── Customer (cần đăng nhập) ── */}
+            <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+            <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
+            <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+            <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+
+            {/* ── Seller ── */}
+            <Route path="/seller/products" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><ProductManagePage /></ProtectedRoute>} />
+            <Route path="/seller/products/add" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><AddProductPage /></ProtectedRoute>} />
+            <Route path="/seller/products/edit/:id" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><EditProductPage /></ProtectedRoute>} />
+            <Route path="/seller/orders" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><OrderManagePage /></ProtectedRoute>} />
+            <Route path="/seller/vouchers" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerVoucherManagePage /></ProtectedRoute>} />
+            <Route path="/seller/revenue" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><SellerRevenueDashboard /></ProtectedRoute>} />
+            <Route path="/seller/flash-sales" element={<ProtectedRoute roles={['ROLE_SELLER', 'ROLE_ADMIN']}><FlashSaleRegisterPage /></ProtectedRoute>} />
+
+            {/* ── Admin ── */}
+            <Route path="/admin/users" element={<ProtectedRoute roles={['ROLE_ADMIN']}><UserManagePage /></ProtectedRoute>} />
+            <Route path="/admin/revenue" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/shops" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ShopManagePage /></ProtectedRoute>} />
+            <Route path="/admin/categories" element={<ProtectedRoute roles={['ROLE_ADMIN']}><CategoryManagePage /></ProtectedRoute>} />
+            <Route path="/admin/vouchers" element={<ProtectedRoute roles={['ROLE_ADMIN']}><AdminVoucherManagePage /></ProtectedRoute>} />
+            <Route path="/admin/moderation" element={<ProtectedRoute roles={['ROLE_ADMIN']}><ProductModerationPage /></ProtectedRoute>} />
+            <Route path="/admin/flash-sales" element={<ProtectedRoute roles={['ROLE_ADMIN']}><FlashSaleManagePage /></ProtectedRoute>} />
+
+            {/* Fallback */}
+            <Route path="*" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>404 — Trang không tồn tại</div>} />
+          </Routes>
         </div>
       </Content>
 

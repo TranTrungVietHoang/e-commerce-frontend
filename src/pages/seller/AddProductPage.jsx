@@ -75,14 +75,19 @@ const AddProductPage = () => {
 
   const onFinish = async (values) => {
     if (!imageUrls.length) { message.warning('Cần ít nhất 1 hình ảnh'); setCurrentStep(1); return; }
+    if (!variants.length) { message.warning('Cần ít nhất 1 biến thể sản phẩm'); setCurrentStep(2); return; }
     if (!shopId) { message.error('Không tìm thấy ID gian hàng. Vui lòng tải lại trang.'); return; }
     
+    // Tính tổng tồn kho từ tất cả biến thể
+    const totalStock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
+
     setLoading(true);
     try {
       const payload = {
         ...values,
         status: values.status || 'ACTIVE',
         imageUrls,
+        stockQuantity: totalStock, // Bổ sung thông số bắt buộc này
         flashSaleEnabled: !!values.flashSaleEnabled,
         flashSalePrice: values.flashSaleEnabled ? values.flashSalePrice : null,
         flashSaleStartAt: values.flashSaleEnabled ? values.flashSaleStartAt : null,
@@ -93,10 +98,15 @@ const AddProductPage = () => {
         })),
       };
       await productService.createProduct(shopId, payload);
-      message.success('Đã tạo sản phẩm thành công!');
+      message.success('Đã tạo sản phẩm thành công và đang chờ duyệt!');
       navigate('/seller/products');
     } catch (error) {
-      message.error(error.message || 'Không thể tạo sản phẩm');
+      // Hiển thị chi tiết lỗi nếu có (ví dụ: "Tên sản phẩm quá ngắn")
+      const errMsg = error.message || (typeof error === 'string' ? error : 'Dữ liệu đầu vào không hợp lệ');
+      message.error(errMsg);
+      
+      // Nếu là lỗi validation ở một bước cụ thể, có thể tự động chuyển trang
+      if (errMsg.includes('Ten san pham')) setCurrentStep(0);
     } finally {
       setLoading(false);
     }

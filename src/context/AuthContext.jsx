@@ -26,6 +26,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (credentials) => {
     const data = await authService.login(credentials);
+    return loginWithToken(data);
+  }, []);
+
+  const loginWithToken = useCallback((data) => {
     storageUtils.setItem('accessToken',  data.accessToken);
     storageUtils.setItem('refreshToken', data.refreshToken);
     const profile = {
@@ -33,7 +37,7 @@ export const AuthProvider = ({ children }) => {
       email:     data.email,
       fullName:  data.fullName,
       avatarUrl: data.avatarUrl || null,
-      roles:     data.roles,
+      roles:     Array.isArray(data.roles) ? data.roles : (typeof data.roles === 'string' && data.roles ? data.roles.split(',') : []),
       shopId:    data.shopId || null,  // Seller's shop ID
     };
     storageUtils.setItem('authUser', JSON.stringify(profile));
@@ -66,8 +70,8 @@ export const AuthProvider = ({ children }) => {
 
   const value = useMemo(() => ({
     user, loading, isAuthenticated, isAdmin, isSeller, isCustomer,
-    login, logout, updateAvatar,
-  }), [user, loading, isAuthenticated, isAdmin, isSeller, isCustomer, login, logout, updateAvatar]);
+    login, loginWithToken, logout, updateAvatar,
+  }), [user, loading, isAuthenticated, isAdmin, isSeller, isCustomer, login, loginWithToken, logout, updateAvatar]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

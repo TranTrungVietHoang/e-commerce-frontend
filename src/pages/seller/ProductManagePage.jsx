@@ -149,6 +149,16 @@ const ProductManagePage = ({ isAdminView = false }) => {
       render: (stock) => <Tag color={stock === 0 ? 'red' : stock < 10 ? 'orange' : 'green'}>{stock}</Tag>,
     },
     {
+      title: 'Kiểm duyệt', dataIndex: 'moderationStatus', width: 120,
+      render: (modStatus) => {
+        let color = 'gold';
+        let text = 'Chờ duyệt';
+        if (modStatus === 'APPROVED') { color = 'cyan'; text = 'Đã duyệt'; }
+        else if (modStatus === 'REJECTED') { color = 'magenta'; text = 'Từ chối'; }
+        return <Tag color={color}>{text}</Tag>;
+      },
+    },
+    {
       title: 'Trạng thái', dataIndex: 'status', width: 150,
       render: (status, record) => {
         let color = 'default';
