@@ -4,7 +4,7 @@ import CategoryMenu from '../../components/common/CategoryMenu';
 import ProductCard from '../../components/product/ProductCard';
 import homeService from '../../services/homeService';
 import productService from '../../services/productService';
-import useCart from '../../hooks/useCart';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
@@ -44,7 +44,7 @@ const HomePage = () => {
   
   const [products, setProducts] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const { addToCart, loading: cartLoading } = useCart();
+  const navigate = useNavigate();
 
   useEffect(() => {
     homeService.getHomeData()
@@ -119,6 +119,9 @@ const HomePage = () => {
                 <Col xs={24} sm={12} lg={8} xl={6} key={product.id}>
                   <Badge.Ribbon text={product.flashSaleActive ? 'Flash Sale' : 'San pham'} color={product.flashSaleActive ? 'red' : 'blue'}>
                     <Card
+                      hoverable
+                      onClick={() => navigate(`/products/${product.id}`)}
+                      style={{ cursor: 'pointer' }}
                       cover={
                         <div style={{ height: 220, overflow: 'hidden', background: '#fafafa' }}>
                           <img
@@ -145,16 +148,7 @@ const HomePage = () => {
                             <Text strong>Con lai: {product.countdown}</Text>
                           </Card>
                         )}
-                        <Text type="secondary">Ton kho: {product.stockQuantity}</Text>
-                        <Button
-                          type="primary"
-                          block
-                          disabled={product.stockQuantity <= 0}
-                          loading={cartLoading}
-                          onClick={() => addToCart({ productId: product.id, quantity: 1 })}
-                        >
-                          Them vao gio
-                        </Button>
+                        <Text type="secondary">Tồn kho: {product.stockQuantity}</Text>
                       </Space>
                     </Card>
                   </Badge.Ribbon>

@@ -22,7 +22,7 @@ const SearchResultPage = () => {
   // Filter state từ URL params
   const [keyword, setKeyword]     = useState(searchParams.get('keyword') || '');
   const [categoryId, setCategoryId] = useState(searchParams.get('categoryId') ? Number(searchParams.get('categoryId')) : null);
-  const [priceRange, setPriceRange] = useState([0, 10000000]);
+  const [priceRange, setPriceRange] = useState([0, 100000000]);
   const [minRating, setMinRating] = useState(null);
   const [sort, setSort]           = useState('newest');
   const [page, setPage]           = useState(1);
@@ -48,7 +48,7 @@ const SearchResultPage = () => {
       keyword: keyword || undefined,
       categoryId: categoryId || undefined,
       minPrice: priceRange[0] || undefined,
-      maxPrice: priceRange[1] < 10000000 ? priceRange[1] : undefined,
+      maxPrice: priceRange[1] < 100000000 ? priceRange[1] : undefined,
       minRating: minRating || undefined,
       sort,
       page: page - 1,
@@ -114,8 +114,8 @@ const SearchResultPage = () => {
             <Slider
               range
               min={0}
-              max={10000000}
-              step={100000}
+              max={100000000}
+              step={1000000}
               value={priceRange}
               onChange={setPriceRange}
               onChangeComplete={() => setPage(1)}

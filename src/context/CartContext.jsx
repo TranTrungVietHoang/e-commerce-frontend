@@ -6,8 +6,8 @@ import { useAuth } from './AuthContext';
 export const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
-  const { user } = useAuth();
-  const userId = user?.id; // backend response often uses 'id' instead of 'userId' in the user object
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.userId; // AuthContext stored it as 'userId'
   
   const [cart, setCart] = useState({ items: [], subtotal: 0, totalItems: 0 });
   const [loading, setLoading] = useState(false);
@@ -17,6 +17,7 @@ export const CartProvider = ({ children }) => {
       setCart({ items: [], subtotal: 0, totalItems: 0 });
       return null;
     }
+    setLoading(true);
     try {
       const data = await cartService.getCart(userId);
       setCart(data || { items: [], subtotal: 0, totalItems: 0 });
@@ -24,6 +25,8 @@ export const CartProvider = ({ children }) => {
     } catch (error) {
       console.error('Error refreshing cart:', error);
       return null;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,10 +34,11 @@ export const CartProvider = ({ children }) => {
     // Load giỏ hàng khi user ID thay đổi
     if (userId) {
       refreshCart();
-    } else {
+    } else if (!authLoading) {
+      // Chỉ reset giỏ hàng khi auth đã tải xong mà không có user
       setCart({ items: [], subtotal: 0, totalItems: 0 });
     }
-  }, [userId]);
+  }, [userId, authLoading]);
 
   const runCartAction = async (action, successMessage) => {
     setLoading(true);
@@ -55,7 +59,7 @@ export const CartProvider = ({ children }) => {
 
   const value = useMemo(() => ({
     cart,
-    loading,
+    loading: loading || authLoading,
     primaryShopId: cart.items?.[0]?.shopId ?? null,
     hasMultipleShops: new Set((cart.items || []).map((item) => item.shopId).filter(Boolean)).size > 1,
     refreshCart,

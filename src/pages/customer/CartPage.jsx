@@ -10,8 +10,48 @@ const { Title, Text } = Typography;
 const formatCurrency = (value) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
 
+
+// ── ShopItemsSection (defined outside CartPage to prevent remount on every re-render) ──
+const ShopItemsSection = React.memo(({ shopData, shopId, selectedItems, selectAllShopItems, columns }) => {
+  const shopItemsSelected = shopData.items.filter(it => selectedItems[it.id]).length;
+  const allShopItemsSelected = shopItemsSelected === shopData.items.length && shopData.items.length > 0;
+
+  return (
+    <Card
+      style={{ marginBottom: 16 }}
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Checkbox
+            checked={allShopItemsSelected}
+            indeterminate={shopItemsSelected > 0 && !allShopItemsSelected}
+            onChange={() => selectAllShopItems(shopId)}
+          />
+          <Text strong style={{ fontSize: 16 }}>{shopData.shopName}</Text>
+          <Tag color="blue">{shopItemsSelected}/{shopData.items.length} sản phẩm</Tag>
+        </div>
+      }
+    >
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={shopData.items}
+        pagination={false}
+        size="small"
+      />
+      {shopData.items.length > 1 && (
+        <div style={{ marginTop: 16, textAlign: 'right' }}>
+          <Text>
+            Tổng cộng: <Text strong>{formatCurrency(shopData.items.reduce((sum, item) => sum + item.lineTotal, 0))}</Text>
+          </Text>
+        </div>
+      )}
+    </Card>
+  );
+});
+ShopItemsSection.displayName = 'ShopItemsSection';
+
 const CartPage = () => {
-  const { cart, updateCartItem, removeCartItem, clearCart, primaryShopId, hasMultipleShops } = useCart();
+  const { cart, updateCartItem, removeCartItem, clearCart, primaryShopId, hasMultipleShops, loading } = useCart();
   const navigate = useNavigate();
   const [voucherCode, setVoucherCode] = useState('');
   const [availableVouchers, setAvailableVouchers] = useState([]);
@@ -87,6 +127,15 @@ const CartPage = () => {
     }
   }, [Object.keys(groupedByShop).length > 0 ? 'has-shops' : 'no-shops']); // Chỉ phụ thuộc vào có shop hay không
 
+  // Mặc định chọn TẤT CẢ items khi giỏ hàng được tải lần đầu
+  useEffect(() => {
+    if (cart.items?.length > 0 && Object.keys(selectedItems).length === 0) {
+      const init = {};
+      cart.items.forEach(item => { init[item.id] = true; });
+      setSelectedItems(init);
+    }
+  }, [cart.items?.length]);
+
   // Lấy voucher khả dụng cho shop được chọn - chỉ gọi khi shop thay đổi
   useEffect(() => {
     if (!cart.items?.length || !selectedShopId) {
@@ -103,9 +152,6 @@ const CartPage = () => {
     return () => clearTimeout(timer);
   }, [selectedShopId]); // Bỏ selectedShopTotal khỏi dependency để tránh gọi lại khi thay đổi quantity
 
-  if (!cart.items?.length) {
-    return <Empty description="Gio hang dang trong" style={{ marginTop: 80 }} />;
-  }
 
   // Toggle chon/bo chon 1 item
   const toggleItemSelection = useCallback((itemId) => {
@@ -185,8 +231,20 @@ const CartPage = () => {
       return;
     }
 
-    // Loc chi lay cac item da chon
-    const selectItemsForCheckout = cart.items.filter(item => selectedItems[item.id]);
+    // Lọc chỉ lấy các item đã chọn
+    const selectedItemsForCheckout = cart.items.filter(item => selectedItems[item.id]);
+
+    // Kiểm tra tính hợp lệ của các sản phẩm được chọn
+    const invalidItems = selectedItemsForCheckout.filter(item => !item.active || !item.isStockSufficient);
+    if (invalidItems.length > 0) {
+      const firstInvalid = invalidItems[0];
+      if (!firstInvalid.active) {
+        message.error(`"${firstInvalid.productName}" hiện đã ngừng kinh doanh. Vui lòng xóa khỏi giỏ hàng.`);
+      } else {
+        message.error(`"${firstInvalid.productName}" đã hết hàng hoặc không đủ số lượng. Vui lòng điều chỉnh.`);
+      }
+      return;
+    }
 
     if (hasMultipleShops) {
       Modal.confirm({
@@ -211,6 +269,7 @@ const CartPage = () => {
         <Checkbox
           checked={selectedItems[record.id] || false}
           onChange={() => toggleItemSelection(record.id)}
+          disabled={!record.active}
         />
       ),
     },
@@ -224,9 +283,13 @@ const CartPage = () => {
         >
           <img src={record.imageUrl || 'https://via.placeholder.com/72'} alt={record.productName} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} />
           <div>
-            <Text strong>{record.productName}</Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Text strong style={{ color: record.active ? 'inherit' : '#999' }}>{record.productName}</Text>
+              {!record.active && <Tag color="default">Ngừng kinh doanh</Tag>}
+              {!record.isStockSufficient && record.active && <Tag color="orange">Hết hàng/Không đủ</Tag>}
+            </div>
             {record.variantName && <div><Text type="secondary">{record.variantName}</Text></div>}
-            {record.flashSaleActive && <Tag color="red">Flash sale den {new Date(record.flashSaleEndAt).toLocaleString()}</Tag>}
+            {record.flashSaleActive && record.active && <Tag color="red">Flash sale den {new Date(record.flashSaleEndAt).toLocaleString()}</Tag>}
           </div>
         </Space>
       ),
@@ -277,45 +340,22 @@ const CartPage = () => {
     },
   ], [selectedItems, toggleItemSelection, handleItemClick, removeCartItem, quantityChanges]);
 
-  // Component hiển thị sản phẩm của một shop
-  const ShopItemsSection = React.memo(({ shopData, shopId }) => {
-    const shopItemsSelected = shopData.items.filter(it => selectedItems[it.id]).length;
-    const allShopItemsSelected = shopItemsSelected === shopData.items.length && shopData.items.length > 0;
-
+  if (loading && !cart.items?.length) {
     return (
-      <Card
-        style={{ marginBottom: 16 }}
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Checkbox
-              checked={allShopItemsSelected}
-              indeterminate={shopItemsSelected > 0 && !allShopItemsSelected}
-              onChange={() => selectAllShopItems(shopId)}
-            />
-            <Text strong style={{ fontSize: 16 }}>{shopData.shopName}</Text>
-            <Tag color="blue">{shopItemsSelected}/{shopData.items.length} san pham</Tag>
-          </div>
-        }
-      >
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={shopData.items}
-          pagination={false}
-          size="small"
-        />
-        {shopData.items.length > 1 && (
-          <div style={{ marginTop: 16, textAlign: 'right' }}>
-            <Text>
-              Tong cong: <Text strong>{formatCurrency(shopData.items.reduce((sum, item) => sum + item.lineTotal, 0))}</Text>
-            </Text>
-          </div>
-        )}
-      </Card>
+      <div style={{ padding: 24, textAlign: 'center', marginTop: 100 }}>
+        <Title level={3}>DANG TAI GIO HANG...</Title>
+      </div>
     );
-  });
+  }
 
-  ShopItemsSection.displayName = 'ShopItemsSection';
+  if (!cart.items?.length) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Title level={2}>Giỏ hàng</Title>
+        <Empty description="Giỏ hàng đang trống" style={{ marginTop: 80 }} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -334,7 +374,14 @@ const CartPage = () => {
 
           <div>
             {Object.entries(groupedByShop).map(([shopId, shopData]) => (
-              <ShopItemsSection key={shopId} shopId={parseInt(shopId)} shopData={shopData} />
+              <ShopItemsSection
+                key={shopId}
+                shopId={parseInt(shopId)}
+                shopData={shopData}
+                selectedItems={selectedItems}
+                selectAllShopItems={selectAllShopItems}
+                columns={columns}
+              />
             ))}
           </div>
         </Card>

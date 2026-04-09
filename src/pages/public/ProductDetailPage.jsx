@@ -16,6 +16,7 @@ import reviewService from '../../services/reviewService';
 import orderService from '../../services/orderService';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import useCart from '../../hooks/useCart';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -196,6 +197,7 @@ const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { addToCart, loading: cartLoading } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedVariant, setSelectedVariant] = useState(null);
@@ -322,6 +324,11 @@ const ProductDetailPage = () => {
               icon={<ShoppingCartOutlined />}
               style={{ flex: 1, height: 52, borderRadius: 12, fontSize: 16, fontWeight: 600 }}
               disabled={hasVariants && !selectedVariant}
+              loading={cartLoading}
+              onClick={() => {
+                const variantId = selectedVariant?.id || null;
+                addToCart({ productId: Number(id), variantId, quantity: 1 });
+              }}
             >
               {hasVariants && !selectedVariant ? 'Vui lòng chọn phân loại' : 'Thêm vào giỏ hàng'}
             </Button>

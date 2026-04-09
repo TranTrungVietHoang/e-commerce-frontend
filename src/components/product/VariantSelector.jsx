@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Tag, Typography } from 'antd';
 
 const { Text } = Typography;
@@ -8,72 +8,107 @@ const formatPrice = (price) =>
 
 /**
  * VariantSelector – Chọn biến thể (Màu sắc, Size...) và hiển thị giá tương ứng.
- * 
- * Variants có format: [ { id, attributes: "{\"Màu\":\"Đỏ\",\"Size\":\"L\"}", price, stock } ]
- * Component sẽ parse JSON attributes, gom nhóm theo key, hiển thị các nút chọn.
- * Khi chọn đủ tổ hợp → callback onVariantSelect(variant).
  */
 const VariantSelector = ({ variants = [], onVariantSelect }) => {
   const [selected, setSelected] = useState({});
 
-  // Parse attributes JSON và gom nhóm theo key
-  const attributeMap = useMemo(() => {
-    const map = {};
+  // 1. Dựng attributeMap: Gộp các key trùng nhau khi đưa về chữ thường (case-insensitive)
+  const attributeMapping = useMemo(() => {
+    const internalMap = {}; // lowercaseKey -> { displayKey, values: Set }
     variants.forEach(v => {
       try {
         const attrs = typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes;
         Object.entries(attrs || {}).forEach(([key, val]) => {
-          if (!map[key]) map[key] = new Set();
-          map[key].add(val);
+          const k = (key || '').trim().normalize('NFC');
+          const valStr = String(val).trim().normalize('NFC');
+          if (k && valStr) {
+            const lowK = k.toLowerCase();
+            if (!internalMap[lowK]) {
+              internalMap[lowK] = { displayKey: k, values: new Set() };
+            }
+            internalMap[lowK].values.add(valStr);
+          }
         });
       } catch (_) {}
     });
-    // Chuyển Set -> Array
-    return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v]]));
+
+    // Chuyển Set -> Array cho từng nhóm
+    return Object.entries(internalMap).map(([lowK, data]) => ({
+      lowKey: lowK,
+      displayKey: data.displayKey,
+      values: [...data.values]
+    }));
   }, [variants]);
 
-  // Tìm variant khớp với lựa chọn hiện tại
-  const matchedVariant = useMemo(() => {
-    const keys = Object.keys(attributeMap);
-    if (keys.length === 0 || Object.keys(selected).length < keys.length) return null;
-    return variants.find(v => {
+  // 2. Hàm tìm variant khớp với một tập lựa chọn
+  const findMatch = (currentSelected, allVariants) => {
+    // Không ép buộc phải chọn đủ số lượng thuộc tính nữa, 
+    // miễn là có lựa chọn và biến thể khớp với *tất cả* các lựa chọn đó.
+    const selectedKeys = Object.keys(currentSelected);
+    if (selectedKeys.length === 0) return null;
+
+    // Tìm tất cả các variants khớp
+    const matchedVariants = allVariants.filter(v => {
       try {
         const attrs = typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes;
-        return keys.every(k => attrs[k] === selected[k]);
+        const normalizedAttrs = {};
+        Object.entries(attrs || {}).forEach(([k, val]) => {
+          const cleanK = (k || '').trim().normalize('NFC').toLowerCase();
+          const cleanVal = String(val || '').trim().normalize('NFC').toLowerCase();
+          normalizedAttrs[cleanK] = cleanVal;
+        });
+        
+        // So khớp bắt buộc với TẤT CẢ các tiêu chí khách đã chọn
+        return selectedKeys.every(lowKey => {
+          const selectedVal = String(currentSelected[lowKey] || '').normalize('NFC').toLowerCase();
+          return normalizedAttrs[lowKey] === selectedVal;
+        });
       } catch (_) { return false; }
-    }) || null;
-  }, [selected, variants, attributeMap]);
+    });
 
-  const handleSelect = (key, val) => {
-    const newSelected = { ...selected, [key]: val };
-    setSelected(newSelected);
-    // Tìm matched variant với lựa chọn mới
-    const keys = Object.keys(attributeMap);
-    if (Object.keys(newSelected).length === keys.length) {
-      const found = variants.find(v => {
+    // Ưu tiên variant khớp hoàn toàn toàn bộ số lượng thuộc tính trước, 
+    // Nếu không có, lấy variant đầu tiên khớp các tiêu chí đang chọn
+    if (matchedVariants.length === 0) return null;
+    
+    // Tìm variant nào có độ dài thuộc tính bằng với độ dài attributeMapping
+    const exactMatch = matchedVariants.find(v => {
         try {
-          const attrs = typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes;
-          return keys.every(k => attrs[k] === newSelected[k]);
+            const attrs = typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes;
+            return Object.keys(attrs).length === attributeMapping.length;
         } catch (_) { return false; }
-      });
-      if (found && onVariantSelect) onVariantSelect(found);
-    }
+    });
+
+    return exactMatch ? exactMatch : matchedVariants[0];
   };
 
-  if (!variants.length) return null;
+  const handleSelect = (lowKey, val) => {
+    const newSelected = { ...selected, [lowKey]: val };
+    setSelected(newSelected);
+    
+    const matched = findMatch(newSelected, variants);
+    if (onVariantSelect) onVariantSelect(matched);
+  };
+
+  // Reset khi variants thay đổi
+  useEffect(() => {
+    setSelected({});
+    if (onVariantSelect) onVariantSelect(null);
+  }, [variants]);
+
+  if (!variants.length || attributeMapping.length === 0) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
-      {Object.entries(attributeMap).map(([key, values]) => (
-        <div key={key} style={{ marginBottom: 12 }}>
-          <Text strong style={{ display: 'block', marginBottom: 6 }}>{key}:</Text>
+      {attributeMapping.map((group) => (
+        <div key={group.lowKey} style={{ marginBottom: 12 }}>
+          <Text strong style={{ display: 'block', marginBottom: 6 }}>{group.displayKey}:</Text>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {values.map(val => {
-              const isSelected = selected[key] === val;
+            {group.values.map(val => {
+              const isSelected = selected[group.lowKey] === val;
               return (
                 <Tag
                   key={val}
-                  onClick={() => handleSelect(key, val)}
+                  onClick={() => handleSelect(group.lowKey, val)}
                   style={{
                     cursor: 'pointer',
                     padding: '6px 14px',
@@ -96,16 +131,20 @@ const VariantSelector = ({ variants = [], onVariantSelect }) => {
       ))}
 
       {/* Hiển thị giá và tồn kho của variant đang chọn */}
-      {matchedVariant && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
-          <Text style={{ fontSize: 20, color: '#f5222d', fontWeight: 700 }}>
-            {formatPrice(matchedVariant.price)}
-          </Text>
-          <Text style={{ marginLeft: 12, color: '#52c41a' }}>
-            Còn {matchedVariant.stock} sản phẩm
-          </Text>
-        </div>
-      )}
+      {(() => {
+        const matched = findMatch(selected, variants);
+        if (!matched) return null;
+        return (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+            <Text style={{ fontSize: 20, color: '#f5222d', fontWeight: 700 }}>
+              {formatPrice(matched.price)}
+            </Text>
+            <Text style={{ marginLeft: 12, color: '#52c41a' }}>
+              Còn {matched.stock} sản phẩm
+            </Text>
+          </div>
+        );
+      })()}
     </div>
   );
 };

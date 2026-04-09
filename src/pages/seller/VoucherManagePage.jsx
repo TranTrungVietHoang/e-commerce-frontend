@@ -42,19 +42,26 @@ const VoucherManagePage = () => {
     setOpen(true);
   };
 
-  const normalizedPayload = useMemo(() => (values) => ({
-    ...values,
-    code: values.code.trim().toUpperCase(),
-    name: values.name.trim(),
-    description: values.description?.trim() || '',
-    discountType: values.discountType,
-    startAt: values.startAt,
-    endAt: values.endAt,
-    maxDiscountValue: values.maxDiscountValue ?? null,
-    usageLimit: values.usageLimit ?? null,
-    minOrderValue: values.minOrderValue ?? 0,
-    active: values.active ?? true,
-  }), []);
+  const normalizedPayload = useMemo(() => (values) => {
+    let start = values.startAt;
+    let end = values.endAt;
+    if (start && start.length === 16) start += ':00';
+    if (end && end.length === 16) end += ':00';
+    
+    return {
+      ...values,
+      code: values.code.trim().toUpperCase(),
+      name: values.name.trim(),
+      description: values.description?.trim() || '',
+      discountType: values.discountType,
+      startAt: start,
+      endAt: end,
+      maxDiscountValue: values.maxDiscountValue ?? null,
+      usageLimit: values.usageLimit ?? null,
+      minOrderValue: values.minOrderValue ?? 0,
+      active: values.active ?? true,
+    };
+  }, []);
 
   const submit = async (values) => {
     setSubmitting(true);

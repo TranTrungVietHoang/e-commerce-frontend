@@ -12,6 +12,7 @@ import ShopPage from '../pages/public/ShopPage';
 import LoginPage from '../pages/public/LoginPage';
 import RegisterPage from '../pages/public/RegisterPage';
 import ForgotPasswordPage from '../pages/public/ForgotPasswordPage';
+import OAuth2RedirectHandler from '../pages/public/OAuth2RedirectHandler';
 
 // ── Customer pages (Requires login) ───────────────────────────────────────────
 import ProfilePage from '../pages/customer/ProfilePage';
@@ -28,9 +29,11 @@ import CategoryManagePage from '../pages/admin/CategoryManagePage';
 import UserManagePage from '../pages/admin/UserManagePage';
 import ShopManagePage from '../pages/admin/ShopManagePage';
 import AdminOrderManagePage from '../pages/admin/OrderManagePage';
+import ProductModerationPage from '../pages/admin/ProductModerationPage';
+import FlashSaleManagePage from '../pages/admin/FlashSaleManagePage';
+import AdminVoucherManagePage from '../pages/admin/VoucherManagePage';
 
 // ── Seller pages (Role: ROLE_SELLER) ──────────────────────────────────────────
-import SellerDashboard from '../pages/seller/SellerDashboard';
 import ProductManagePage from '../pages/seller/ProductManagePage';
 import AddProductPage from '../pages/seller/AddProductPage';
 import EditProductPage from '../pages/seller/EditProductPage';
@@ -38,6 +41,7 @@ import SellerOrderManagePage from '../pages/seller/OrderManagePage';
 import SellerRevenueDashboard from '../pages/seller/SellerRevenueDashboard';
 import VoucherManagePage from '../pages/seller/VoucherManagePage';
 import ShopRegistrationPage from '../pages/seller/ShopRegistrationPage';
+import FlashSaleRegisterPage from '../pages/seller/FlashSaleRegisterPage';
 
 const AppRouter = () => {
   return (
@@ -51,6 +55,7 @@ const AppRouter = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
       <Route path="/unauthorized" element={<div style={{ padding: 80, textAlign: 'center', fontSize: 20 }}>🚫 Bạn không có quyền truy cập trang này.</div>} />
 
       {/* 2. Customer Routes (đã đăng nhập) */}
@@ -68,8 +73,7 @@ const AppRouter = () => {
           <Outlet /> 
         </RoleRoute>
       }>
-        <Route index element={<Navigate to="shop" replace />} />
-        <Route path="shop" element={<SellerDashboard />} />
+        <Route index element={<Navigate to="revenue" replace />} />
         <Route path="products" element={<ProductManagePage />} />
         <Route path="products/add" element={<AddProductPage />} />
         <Route path="products/edit/:id" element={<EditProductPage />} />
@@ -77,6 +81,7 @@ const AppRouter = () => {
         <Route path="vouchers" element={<VoucherManagePage />} />
         <Route path="revenue" element={<SellerRevenueDashboard />} />
         <Route path="categories" element={<CategoryManagePage />} />
+        <Route path="flash-sales" element={<FlashSaleRegisterPage />} />
       </Route>
 
       {/* 4. Admin Routes (Role: ROLE_ADMIN) */}
@@ -91,6 +96,9 @@ const AppRouter = () => {
         <Route path="categories" element={<CategoryManagePage />} />
         <Route path="orders" element={<AdminOrderManagePage />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="vouchers" element={<AdminVoucherManagePage />} />
+        <Route path="moderation" element={<ProductModerationPage />} />
+        <Route path="flash-sales" element={<FlashSaleManagePage />} />
       </Route>
 
       {/* 5. Fallback */}

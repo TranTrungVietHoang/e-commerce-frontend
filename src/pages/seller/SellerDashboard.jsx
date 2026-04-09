@@ -1,30 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Descriptions, Tag, Button, Spin, Result, Form, Input, message, Divider, Space, Alert } from 'antd';
-import { EditOutlined, ShopOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Typography, Descriptions, Tag, Button, Spin, Result, Form, Input, message, Divider, Space, Alert, Row, Col, Statistic } from 'antd';
+import { EditOutlined, ShopOutlined, InfoCircleOutlined, RiseOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import shopService from '../../services/shopService';
+import orderService from '../../services/orderService';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
 const SellerDashboard = () => {
   const [shop, setShop] = useState(null);
+  const [stats, setStats] = useState({ todayRevenue: 0, todayOrders: 0 });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
-  const fetchMyShop = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const data = await shopService.getMyShop();
-      setShop(data);
+      const shopData = await shopService.getMyShop();
+      setShop(shopData);
       form.setFieldsValue({
-        name: data.name,
-        description: data.description,
-        logoUrl: data.logoUrl,
-        bannerUrl: data.bannerUrl,
+        name: shopData.name,
+        description: shopData.description,
+        logoUrl: shopData.logoUrl,
+        bannerUrl: shopData.bannerUrl,
       });
+
+      // Fetch thêm thống kê nếu shop đã được duyệt
+      if (shopData.status === 'APPROVED') {
+        try {
+          const todayData = await orderService.getTodayRevenue(shopData.id);
+          setStats({
+            todayRevenue: todayData?.totalRevenue || 0,
+            todayOrders: todayData?.totalOrders || 0
+          });
+        } catch (err) {
+          console.error("Lỗi lấy thống kê nhanh:", err);
+        }
+      }
     } catch (error) {
       if (error?.code !== 404 && error?.code !== 'SHOP_NOT_FOUND') {
         message.warning('Bạn chưa có gian hàng nào.');
@@ -36,7 +51,7 @@ const SellerDashboard = () => {
   };
 
   useEffect(() => {
-    fetchMyShop();
+    fetchData();
   }, []);
 
   const handleUpdate = async (values) => {
@@ -119,6 +134,44 @@ const SellerDashboard = () => {
 
   return (
     <div style={{ padding: '24px' }}>
+      <Title level={3} style={{ marginBottom: 24 }}>Dashboard Người bán</Title>
+      
+      {/* Quick Stats Section */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={8}>
+          <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Doanh thu hôm nay"
+              value={stats.todayRevenue}
+              precision={0}
+              valueStyle={{ color: '#cf1322' }}
+              prefix={<RiseOutlined />}
+              suffix="₫"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Đơn hàng mới"
+              value={stats.todayOrders}
+              prefix={<ShoppingCartOutlined />}
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8 rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Trạng thái Shop"
+              value={shop.status}
+              prefix={<InfoCircleOutlined />}
+              valueStyle={{ color: shop.status === 'APPROVED' ? '#52c41a' : '#faad14', fontSize: 18 }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Card 
         title={<><ShopOutlined /> Tổng quan Gian hàng</>}
         extra={!editing && <Button type="primary" icon={<EditOutlined />} onClick={() => setEditing(true)}>Chỉnh sửa</Button>}

@@ -3,9 +3,9 @@ import api from './api';
 const flashSaleService = {
   // --- ADMIN APIs ---
   
-  // Lấy danh sách tất cả các đợt Flash Sale
+  // Lấy danh sách tất cả các đợt Flash Sale (cho Admin/Seller/Customer)
   getAllFlashSales: () => 
-    api.get('/admin/flash-sales'),
+    api.get('/flash-sales'),
 
   // Tạo mới một đợt Flash Sale
   createFlashSale: (data) => 

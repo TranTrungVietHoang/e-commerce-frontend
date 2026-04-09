@@ -12,7 +12,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const stored = storageUtils.getItem('authUser');
     if (stored) {
-      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
+      try { 
+        const parsed = JSON.parse(stored);
+        // Normalize: Đảm bảo luôn có userId ngay cả khi dữ liệu cũ dùng 'id'
+        if (parsed && !parsed.userId && parsed.id) {
+          parsed.userId = parsed.id;
+        }
+        setUser(parsed); 
+      } catch { /* ignore */ }
     }
     setLoading(false);
   }, []);

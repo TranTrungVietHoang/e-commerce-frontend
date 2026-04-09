@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { Card, Row, Col, Statistic, Select, Space, Table, Tag, Typography, Empty, Spin, Button } from 'antd';
+import { Card, Row, Col, Statistic, Select, Space, Table, Tag, Typography, Empty, Spin, Button, Divider } from 'antd';
 import {
   RiseOutlined,
   ShoppingCartOutlined,

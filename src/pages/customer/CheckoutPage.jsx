@@ -176,8 +176,10 @@ const CheckoutPage = () => {
           createdAt: order.createdAt
         });
 
-        // Xóa giỏ hàng khỏi frontend context (tại database backend đã được tự động xử lý bởi orderService.createOrder)
-        refreshCart && refreshCart();
+        // Delay để đảm bảo backend transaction hoàn thành trước khi refresh cart
+        setTimeout(() => {
+          refreshCart && refreshCart();
+        }, 500);
 
         setCurrentStep(4);
       }
@@ -258,7 +260,7 @@ const CheckoutPage = () => {
   const renderStep1 = () => (
     <div className="checkout-step">
       <h2>1 Xem lại giỏ hàng</h2>
-      {cartItems.length === 0 ? (
+      {checkoutItems.length === 0 ? (
         <div className="empty-cart">
           <p>Gio hang trong. Vui long them san pham!</p>
           <button onClick={() => navigate('/products')} className="btn btn-primary">

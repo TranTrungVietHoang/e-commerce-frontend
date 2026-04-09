@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Steps, Form, Input, InputNumber, Button, Card, Space,
-  Table, message, Typography, Select, Divider, List, Avatar, Tag, Upload, Checkbox
+  Table, message, Typography, Select, Divider, List, Avatar, Tag, Upload, Checkbox, Alert, Spin
 } from 'antd';
 import {
   InfoCircleOutlined, PictureOutlined, AppstoreAddOutlined,
@@ -26,16 +26,23 @@ const AddProductPage = () => {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [shopId, setShopId] = useState(user?.shopId || null);
+  const [shop, setShop] = useState(null);
+  const [fetchingShop, setFetchingShop] = useState(true);
 
   useEffect(() => {
     productService.getCategories().then(setCategories).catch(() => setCategories([]));
     
-    // Ưu tiên shopId từ AuthContext, nếu không có mới fetch từ API
-    if (!user?.shopId) {
-      shopService.getMyShop().then(s => setShopId(s.id)).catch(() => message.error("Không thể xác định gian hàng"));
-    }
-  }, [user?.shopId]);
+    setFetchingShop(true);
+    shopService.getMyShop()
+      .then(s => {
+        setShop(s);
+      })
+      .catch((err) => {
+        console.error(err);
+        message.error("Không thể xác định thông tin gian hàng");
+      })
+      .finally(() => setFetchingShop(false));
+  }, []);
 
   const handleUpload = async (file) => {
     setUploading(true);
@@ -76,7 +83,7 @@ const AddProductPage = () => {
   const onFinish = async (values) => {
     if (!imageUrls.length) { message.warning('Cần ít nhất 1 hình ảnh'); setCurrentStep(1); return; }
     if (!variants.length) { message.warning('Cần ít nhất 1 biến thể sản phẩm'); setCurrentStep(2); return; }
-    if (!shopId) { message.error('Không tìm thấy ID gian hàng. Vui lòng tải lại trang.'); return; }
+    if (!shop?.id) { message.error('Không tìm thấy ID gian hàng. Vui lòng tải lại trang.'); return; }
     
     // Tính tổng tồn kho từ tất cả biến thể
     const totalStock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
@@ -97,7 +104,7 @@ const AddProductPage = () => {
           attributes: JSON.stringify(Object.fromEntries(attributes.filter(a => a.key && a.value).map(a => [a.key, a.value]))),
         })),
       };
-      await productService.createProduct(shopId, payload);
+      await productService.createProduct(shop.id, payload);
       message.success('Đã tạo sản phẩm thành công và đang chờ duyệt!');
       navigate('/seller/products');
     } catch (error) {
@@ -194,6 +201,31 @@ const AddProductPage = () => {
       )
     }
   ];
+
+  if (fetchingShop) {
+    return <div style={{ textAlign: 'center', padding: '100px' }}><Spin size="large" tip="Đang tải thông tin gian hàng..." /></div>;
+  }
+
+  if (!shop || shop.status !== 'APPROVED') {
+    return (
+      <div style={{ padding: '24px', maxWidth: 800, margin: '0 auto' }}>
+        <Alert
+          message={shop?.status === 'LOCKED' ? "Gian hàng đã bị khóa" : "Gian hàng chưa được duyệt"}
+          description={
+            <div>
+              <p>Bạn không thể thêm sản phẩm mới khi gian hàng đang ở trạng thái: <b>{shop?.status || 'Chưa đăng ký'}</b></p>
+              {shop?.rejectionReason && <p>Lý do: <i>{shop.rejectionReason}</i></p>}
+              <Button type="primary" style={{ marginTop: 16 }} onClick={() => navigate('/seller/dashboard')}>
+                Quay lại Dashboard
+              </Button>
+            </div>
+          }
+          type="warning"
+          showIcon
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>

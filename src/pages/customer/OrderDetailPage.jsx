@@ -241,7 +241,9 @@ const OrderDetailPage = () => {
             
             {(order.discountAmount || 0) > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
-                <Text type="danger">Giảm giá:</Text>
+                <Text type="danger">
+                  Giảm giá {order.voucherCode && <Tag color="red" style={{ marginLeft: 8 }}>{order.voucherCode}</Tag>}:
+                </Text>
                 <Text type="danger">-{money(order.discountAmount)}</Text>
               </div>
             )}

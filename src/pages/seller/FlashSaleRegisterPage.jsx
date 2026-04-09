@@ -26,7 +26,7 @@ const FlashSaleRegisterPage = () => {
       const [sales, registered, products] = await Promise.all([
         flashSaleService.getAllFlashSales(),
         flashSaleService.getMyRegisteredProducts(),
-        productService.getShopProducts(user.shop?.id, 0, 100),
+        productService.getShopProducts(user.shopId, 0, 100),
       ]);
       setAvailableFlashSales(sales.filter(s => ['PENDING', 'ACTIVE'].includes(s.status)));
       setMyRegisteredProducts(registered);
@@ -39,7 +39,7 @@ const FlashSaleRegisterPage = () => {
   };
 
   useEffect(() => {
-    if (user?.shop?.id) {
+    if (user?.shopId) {
         fetchData();
     }
   }, [user]);
@@ -151,11 +151,13 @@ const FlashSaleRegisterPage = () => {
         <Form form={form} layout="vertical" onFinish={handleRegister}>
           <Form.Item label="Chọn đợt Flash Sale" name="flashSaleId" rules={[{ required: true }]}>
             <Select placeholder="Chọn chiến dịch đang mở">
-              {availableFlashSales.map(fs => (
-                <Select.Option key={fs.id} value={fs.id}>
-                  {fs.name} ({dayjs(fs.startTime).format('HH:mm DD/MM')} - {dayjs(fs.endTime).format('HH:mm DD/MM')})
-                </Select.Option>
-              ))}
+              {availableFlashSales
+                .filter(fs => fs.status === 'PENDING' || fs.status === 'ACTIVE')
+                .map(fs => (
+                  <Select.Option key={fs.id} value={fs.id}>
+                    {fs.name} ({dayjs(fs.startTime).format('HH:mm DD/MM')} - {dayjs(fs.endTime).format('HH:mm DD/MM')})
+                  </Select.Option>
+                ))}
             </Select>
           </Form.Item>
           

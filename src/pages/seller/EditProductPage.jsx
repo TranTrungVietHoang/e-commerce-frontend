@@ -127,8 +127,17 @@ const EditProductPage = () => {
         imageUrls,
         variants: variants.map(({ key, attributes, ...v }) => {
           const attrObj = {};
-          attributes.forEach(a => { if (a.key && a.value) attrObj[a.key] = a.value; });
-          return { ...v, attributes: JSON.stringify(attrObj) };
+          attributes.forEach(a => { 
+            const k = (a.key || '').trim().normalize('NFC');
+            const val = (a.value || '').trim().normalize('NFC');
+            if (k && val) {
+              attrObj[k] = val; 
+            }
+          });
+          // Nếu key là số nguyên nhỏ (ID thật từ DB), truyền id lên để Backend biết đây là cập nhật.
+          // Nếu key là timestamp lớn (>= 1e12) thì đây là variant mới, không truyền id.
+          const isExistingVariant = typeof key === 'number' && key < 1e12;
+          return { ...v, id: isExistingVariant ? key : undefined, attributes: JSON.stringify(attrObj) };
         }),
       };
       await productService.updateProduct(id, shopId, payload);
